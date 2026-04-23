@@ -1,23 +1,33 @@
 {
   "name": "@dexcodesxs/bon",
-  "version": "2.5.8",
+  "version": "2.5.9",
   "description": "Reverse engineered Bonsai AI CLI — free Claude Opus 4.7 with 1M context, OpenAI-compatible proxy, web dashboard. Cross-platform: termux, linux, macos, windows.",
-  "bin": { "bon": "./bonsai.js" },
+  "bin": {
+    "bon": "./bonsai.js"
+  },
   "main": "bonsai.js",
   "type": "module",
   "files": [
     "bonsai.js",
     "api.js",
-    "trybons/",
     "README.md",
     "CHANGELOG.md",
     "MODELS.md",
     "FINDINGS.md",
     "TRYBONS_RECON.md",
     "og-image.png",
-    "og-image-4k.png"
+    "og-image-4k.png",
+    "trybons/server.js",
+    "trybons/package.json",
+    "trybons/package-lock.json",
+    "trybons/README.md",
+    "trybons/VERSION",
+    "trybons/og-image.svg",
+    "trybons/views/**/*.ejs"
   ],
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "release:patch": "node release.cjs patch",
     "release:minor": "node release.cjs minor",
