@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.5";
+const VERSION = "2.5.6";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -1795,18 +1795,23 @@ async function cmdAgents() {
 
   // detect what's installed by probing npm + filesystem hints
   let detected = {};
+  // silence stderr at process level (no shell redirect needed → cross-platform)
+  // win → cmd.exe under shell:true treats `2>/dev/null` as missing path → noise.
+  // node's stdio: ['ignore','ignore','ignore'] discards everything cleanly on every OS.
   function check(cmd) {
-    // 2>NUL on win, 2>/dev/null on unix — silence the "system cannot find" noise
-    let suffix = isWin ? ' 2>NUL' : ' 2>/dev/null';
-    try { execSync(`${cmd} --version${suffix}`, { stdio: 'ignore', timeout: 3000 }); return true; }
+    try { execSync(`${cmd} --version`, { stdio: ['ignore', 'ignore', 'ignore'], timeout: 3000 }); return true; }
     catch { return false; }
   }
+  // npm ls cache — call it once, parse once, look up many times
+  let _npmCache = null;
   function checkNpm(pkg) {
-    try {
-      let out = execSync('npm ls -g --depth=0 --json 2>/dev/null', { encoding: 'utf8', timeout: 5000 });
-      let j = JSON.parse(out);
-      return !!j.dependencies?.[pkg];
-    } catch { return false; }
+    if (_npmCache === null) {
+      try {
+        let out = execSync('npm ls -g --depth=0 --json', { encoding: 'utf8', timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] });
+        _npmCache = JSON.parse(out)?.dependencies || {};
+      } catch { _npmCache = {}; }
+    }
+    return !!_npmCache[pkg];
   }
   function checkVscodeExt(id) {
     let dirs = [
@@ -1831,7 +1836,12 @@ async function cmdAgents() {
   detected['roo-code']        = checkVscodeExt('rooveterinaryinc.roo-cline');
   detected['aider']           = check('aider');
   detected['opencode']        = checkNpm('@opencode-ai/cli') || check('opencode');
-  detected['gh-copilot']      = check('gh') && (() => { try { execSync('gh extension list 2>/dev/null', { encoding: 'utf8' }).includes('copilot'); return true; } catch { return false; } })();
+  detected['gh-copilot']      = check('gh') && (() => {
+    try {
+      let out = execSync('gh extension list', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
+      return out.includes('copilot');
+    } catch { return false; }
+  })();
   sp.stop();
 
   let envName = isWin ? 'set' : 'export';
