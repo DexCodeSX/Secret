@@ -1,0 +1,30 @@
+# scratch
+.patch*.cjs
+*.tmp
+*.log
+__smart_fs_cache__/
+*.beautified.js
+*.beautified.js.map
+
+# os
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# node
+node_modules/
+package-lock.json
+
+# bonsai local state — never commit creds
+.bonsai-oss/
+apikey.json
+auth.json
+cc_system.json
+profiles/
+pool-state.json
