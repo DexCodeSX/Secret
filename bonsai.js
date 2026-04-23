@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.11";
+const VERSION = "2.5.12";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
