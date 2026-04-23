@@ -1,9 +1,9 @@
 <%- include('../partials/head', { title: 'activity' }) %>
-<div class="flex h-screen overflow-hidden">
+<div class="lg:flex lg:h-screen lg:overflow-hidden">
   <%- include('../partials/sidebar') %>
 
-  <main class="flex-1 overflow-y-auto scrollbar">
-    <div class="max-w-6xl mx-auto px-8 py-8">
+  <main class="lg:flex-1 lg:overflow-y-auto scrollbar">
+    <div class="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
       <header class="flex items-end justify-between mb-8 animate-fade-in">
         <div>
           <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">activity</div>
@@ -16,26 +16,56 @@
         <% if (items.length === 0) { %>
           <div class="px-6 py-16 text-center text-sm text-zinc-500">no activity</div>
         <% } else { %>
-          <div class="grid grid-cols-12 px-6 py-3 text-xs uppercase tracking-wider text-zinc-500 border-b border-ink-700/50 font-mono">
-            <div class="col-span-4">time</div>
-            <div class="col-span-3">model</div>
-            <div class="col-span-2 text-right">input</div>
-            <div class="col-span-2 text-right">output</div>
-            <div class="col-span-1 text-right">cache</div>
+          <!-- desktop table (md+) -->
+          <div class="hidden md:block">
+            <div class="grid grid-cols-12 px-6 py-3 text-xs uppercase tracking-wider text-zinc-500 border-b border-ink-700/50 font-mono">
+              <div class="col-span-4">time</div>
+              <div class="col-span-3">model</div>
+              <div class="col-span-2 text-right">input</div>
+              <div class="col-span-2 text-right">output</div>
+              <div class="col-span-1 text-right">cache</div>
+            </div>
+            <div class="divide-y divide-ink-800">
+              <% items.forEach(a => {
+                let time = new Date(a.timestamp);
+                let inp = a.input_tokens || 0;
+                let out = a.output_tokens || 0;
+                let cache = a.cache_read_tokens || 0;
+              %>
+                <div class="grid grid-cols-12 px-6 py-2.5 text-sm hover:bg-ink-800/40 transition-colors group">
+                  <div class="col-span-4 text-zinc-400 font-mono text-xs"><%= time.toLocaleString() %></div>
+                  <div class="col-span-3 text-emerald-300 font-mono text-xs truncate"><%= a.model_display_name || 'stealth' %></div>
+                  <div class="col-span-2 text-right text-amber-300 font-mono text-xs"><%= inp.toLocaleString() %></div>
+                  <div class="col-span-2 text-right text-sky-300 font-mono text-xs"><%= out.toLocaleString() %></div>
+                  <div class="col-span-1 text-right text-zinc-500 font-mono text-xs"><%= cache > 0 ? cache.toLocaleString() : '—' %></div>
+                </div>
+              <% }) %>
+            </div>
           </div>
-          <div class="divide-y divide-ink-800">
+
+          <!-- mobile cards (<md) — stacked layout for narrow screens -->
+          <div class="md:hidden divide-y divide-ink-800">
             <% items.forEach(a => {
               let time = new Date(a.timestamp);
               let inp = a.input_tokens || 0;
               let out = a.output_tokens || 0;
               let cache = a.cache_read_tokens || 0;
             %>
-              <div class="grid grid-cols-12 px-6 py-2.5 text-sm hover:bg-ink-800/40 transition-colors group">
-                <div class="col-span-4 text-zinc-400 font-mono text-xs"><%= time.toLocaleString() %></div>
-                <div class="col-span-3 text-emerald-300 font-mono text-xs truncate"><%= a.model_display_name || 'stealth' %></div>
-                <div class="col-span-2 text-right text-amber-300 font-mono text-xs"><%= inp.toLocaleString() %></div>
-                <div class="col-span-2 text-right text-sky-300 font-mono text-xs"><%= out.toLocaleString() %></div>
-                <div class="col-span-1 text-right text-zinc-500 font-mono text-xs"><%= cache > 0 ? cache.toLocaleString() : '—' %></div>
+              <div class="px-4 py-3 hover:bg-ink-800/40 transition-colors">
+                <div class="flex items-baseline justify-between mb-1">
+                  <div class="text-emerald-300 font-mono text-sm truncate flex-1 mr-2"><%= a.model_display_name || 'stealth' %></div>
+                  <div class="text-zinc-500 font-mono text-xs flex-shrink-0"><%= time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) %></div>
+                </div>
+                <div class="flex items-center gap-3 text-xs font-mono">
+                  <span class="text-amber-300"><%= inp.toLocaleString() %></span>
+                  <span class="text-zinc-600">in →</span>
+                  <span class="text-sky-300"><%= out.toLocaleString() %></span>
+                  <span class="text-zinc-600">out</span>
+                  <% if (cache > 0) { %>
+                    <span class="text-zinc-500 ml-auto"><%= cache.toLocaleString() %> cached</span>
+                  <% } %>
+                </div>
+                <div class="text-zinc-600 text-[10px] mt-0.5"><%= time.toLocaleDateString() %></div>
               </div>
             <% }) %>
           </div>

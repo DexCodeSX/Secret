@@ -31,3 +31,6 @@ cc_system.json
 profiles/
 pool-state.json
 .sidebar-preview.png
+.mobile-preview.png
+.tablet-preview.png
+.*-preview.png

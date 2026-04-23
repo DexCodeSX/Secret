@@ -1,16 +1,16 @@
 <%- include('../partials/head', { title: 'dashboard' }) %>
-<div class="flex h-screen overflow-hidden">
+<div class="lg:flex lg:h-screen lg:overflow-hidden">
   <%- include('../partials/sidebar') %>
 
-  <main class="flex-1 overflow-y-auto scrollbar">
-    <div class="max-w-6xl mx-auto px-8 py-8">
+  <main class="lg:flex-1 lg:overflow-y-auto scrollbar">
+    <div class="max-w-6xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
       <header class="mb-8 animate-fade-in">
         <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">overview</div>
         <h1 class="text-3xl font-bold">welcome back, <span class="grad-text"><%= user?.first_name || 'human' %></span></h1>
       </header>
 
       <!-- stat tiles -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 animate-slide-up">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8 animate-slide-up">
         <% const stats = [
           ['requests today', todayReqs, 'emerald', 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'],
           ['input tokens',  todayIn.toLocaleString(),  'amber', 'M19 9l-5 5-4-4-5 5'],

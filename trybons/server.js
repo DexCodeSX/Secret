@@ -315,7 +315,32 @@ app.post('/profiles/save', requireAuth, async (req, res) => {
     auth, apiKey: key?.key,
   }, null, 2));
   flash(res, `saved profile "${name}"`, 'info');
-  res.redirect('/dashboard/settings');
+  res.redirect(req.body._redirect || '/dashboard/settings');
+});
+
+// SAVE current + LOGOUT + redirect to login — the proper "add another account" flow
+app.post('/profiles/add-account', requireAuth, async (req, res) => {
+  // 1. auto-save current under email-derived name (or timestamp if not named)
+  let baseName = (res.locals.user?.email || `acc-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+  let candidate = baseName;
+  let n = 1;
+  fs.mkdirSync(PROFILES_DIR, { recursive: true });
+  while (fs.existsSync(path.join(PROFILES_DIR, `${candidate}.json`))) {
+    n++; candidate = `${baseName}-${n}`;
+    if (n > 99) break;
+  }
+  let auth = loadAuth();
+  let key = loadKey();
+  fs.writeFileSync(path.join(PROFILES_DIR, `${candidate}.json`), JSON.stringify({
+    email: res.locals.user?.email,
+    auth, apiKey: key?.key,
+  }, null, 2));
+  // 2. clear current session
+  try { fs.unlinkSync(path.join(cfg.bonDir, 'auth.json')); } catch {}
+  try { fs.unlinkSync(path.join(cfg.bonDir, 'apikey.json')); } catch {}
+  // 3. send to login
+  flash(res, `saved current as "${candidate}", sign in with another account →`, 'info');
+  res.redirect('/login');
 });
 
 // delete profile
