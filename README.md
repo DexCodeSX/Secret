@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.5.5-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/version-2.5.13-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue?style=for-the-badge&logo=node.js" />
   <img src="https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos%20%7C%20termux-purple?style=for-the-badge" />
   <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" />
@@ -38,7 +38,7 @@
 ---
 
 <details>
-<summary><b>📜 Latest changes (v2.5.5) — click to expand</b></summary>
+<summary><b>📜 Latest changes (v2.5.13) — click to expand</b></summary>
 
 **v2.5.x — web UI + docs in browser**
 - **`bon ui`** — launches a full local web dashboard on `http://localhost:3000` (express + ejs + htmx + tailwind, zero build, ~5 MB deps). shares session w/ `bon` CLI via `~/.bonsai-oss/`. mobile responsive (hamburger drawer, stacked grids). multi-account dropdown w/ click-to-switch + smart "+ add another account" auto-flow.

@@ -1888,10 +1888,14 @@ async function cmdFingerprint() {
 async function cmdApi() {
   let portArg = process.argv.find(a => /^\d{2,5}$/.test(a));
   let port = parseInt(portArg) || 4000;
-  let apiPath = path.join(path.dirname(process.argv[1] || ''), 'api.js');
+  // resolve api.js relative to bonsai.js (next to it in node_modules), not argv[1]
+  // — argv[1] on linux/macos npm installs is the symlink at /usr/local/bin/bon
+  let apiPath = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), 'api.js');
+  if (isWin && apiPath.startsWith('/')) apiPath = apiPath.slice(1);
   if (!fs.existsSync(apiPath)) {
     fail("api.js not found");
-    info(`download it: ${c.cyan}curl -sL ${REPO_RAW}/api.js -o api.js${c.reset}`);
+    info(`expected at: ${c.dim}${apiPath}${c.reset}`);
+    info(`reinstall to fix: ${c.cyan}npm i -g @dexcodesxs/bon${c.reset}`);
     return;
   }
   let args = ['--', apiPath, String(port)];

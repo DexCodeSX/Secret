@@ -74,6 +74,15 @@ try {
   console.log(`✓ trybons UI ${tv} → ${newTv}`);
 } catch {}
 
+// 4b. bump README version refs (badge + "Latest changes (vX.Y.Z)" line)
+try {
+  let rm = read('README.md');
+  let before = rm;
+  rm = rm.replace(/badge\/version-\d+\.\d+\.\d+-/g, `badge/version-${newVer}-`);
+  rm = rm.replace(/📜 Latest changes \(v\d+\.\d+\.\d+\)/g, `📜 Latest changes (v${newVer})`);
+  if (rm !== before) { write('README.md', rm); console.log(`✓ README.md   version refs → v${newVer}`); }
+} catch {}
+
 // 5. update OG image SVG version pill (if present)
 try {
   let svg = read('trybons/og-image.svg');
