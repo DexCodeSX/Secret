@@ -1425,22 +1425,40 @@ async function cmdStatsig() {
 }
 
 async function cmdModels() {
-  let known = [
-    ['claude-opus-4-6', 'Claude Opus 4.6', '1M context', c.green, 'default'],
-    ['claude-sonnet-4-6', 'Claude Sonnet 4.6', '200K context', c.cyan, 'fast'],
-    ['claude-opus-4-5', 'Claude Opus 4.5', '200K context', c.dim, ''],
-    ['claude-sonnet-4-5', 'Claude Sonnet 4.5', '200K context', c.dim, ''],
-    ['claude-sonnet-4-20250514', 'Claude Sonnet 4', '200K context', c.dim, 'legacy'],
-    ['glm-4.7', 'GLM-4.7 (ZhipuAI)', '128K context', c.magenta, '8 providers'],
+  // updated 2026-04-23: tested 213 models from litellm catalog, 199 worked.
+  // grouped highlights below. for full list see MODELS.md in repo.
+  let highlights = [
+    // claude
+    ['claude-opus-4-7',           'Claude Opus 4.7',     'newest',        c.green,   'NEW'],
+    ['claude-opus-4-6',           'Claude Opus 4.6',     '1M ctx [1m]',   c.green,   'default'],
+    ['claude-opus-4-6-fast',      'Claude Opus 4.6 Fast','quicker',       c.green,   ''],
+    ['claude-sonnet-4-5',         'Claude Sonnet 4.5',   'fast',          c.cyan,    ''],
+    ['claude-haiku-4-5',          'Claude Haiku 4.5',    'cheapest tier', c.cyan,    'NEW'],
+    // openai
+    ['gpt-5',                     'GPT-5',               'OpenAI',        c.magenta, ''],
+    ['o3',                        'o3',                  'reasoning',     c.magenta, ''],
+    ['gpt-oss-120b',              'GPT-OSS 120B',        'open source',   c.magenta, ''],
+    // google
+    ['gemini-2.5-flash',          'Gemini 2.5 Flash',    'Google',        c.blue,    ''],
+    ['gemini-pro-latest',         'Gemini Pro latest',   'Google',        c.blue,    ''],
+    ['gemini-3.1-flash-live-preview', 'Gemini 3.1 Flash', 'live preview', c.blue,    'NEW'],
+    // chinese / open
+    ['z-ai/glm-4.7',              'GLM-4.7',             'Z-AI, 8 prov',  c.magenta, ''],
+    ['minimax/MiniMax-M2.1',      'MiniMax M2.1',        '7 providers',   c.gold,    ''],
+    ['kimi-k2-thinking-251104',   'Kimi K2 thinking',    'Moonshot',      c.gold,    ''],
+    ['deepseek-v3-2-251201',      'DeepSeek V3.2',       'DeepSeek',      c.teal,    ''],
+    ['together_ai/Qwen/Qwen3.5-397B-A17B', 'Qwen 3.5 397B', 'Alibaba',    c.teal,    ''],
+    ['together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1', 'Mixtral 8x7B', 'Mistral', c.orange, ''],
+    ['command-r-plus',            'Command R+',          'Cohere',        c.orange,  ''],
   ];
 
   log('');
-  let lines = known.map(([id, name, ctx, col, tag]) => {
-    let badge = tag === 'default' ? `${c.green}${S.star}${c.reset}` : `${c.cyan}${S.dia}${c.reset}`;
+  let lines = highlights.map(([id, name, ctx, col, tag]) => {
+    let badge = tag === 'default' ? `${c.green}${S.star}${c.reset}` : tag === 'NEW' ? `${c.gold}${S.bolt}${c.reset}` : `${c.cyan}${S.dia}${c.reset}`;
     let tagStr = tag ? `  ${c.mute}${tag}${c.reset}` : '';
-    return `  ${badge} ${col}${c.bold}${id.padEnd(28)}${c.reset} ${c.dim}${name.padEnd(22)}${c.reset} ${c.sub}${ctx}${c.reset}${tagStr}`;
+    return `  ${badge} ${col}${c.bold}${id.padEnd(40)}${c.reset} ${c.dim}${name.padEnd(20)}${c.reset} ${c.sub}${ctx}${c.reset}${tagStr}`;
   });
-  box(lines, { title: 'AVAILABLE MODELS', color: c.cyan });
+  box(lines, { title: 'TOP MODELS (highlights)', color: c.cyan, width: 86 });
 
   log('');
   box([
@@ -1453,11 +1471,13 @@ async function cmdModels() {
 
   log('');
   log(`  ${c.bold}${c.fg}usage${c.reset}`);
-  log(`  ${c.cyan}bon start --model claude-sonnet-4-6${c.reset}              ${c.mute}cli${c.reset}`);
-  log(`  ${c.cyan}{"model":"claude-opus-4-6","messages":[...]}${c.reset}     ${c.mute}api.js${c.reset}`);
-  log(`  ${c.cyan}c.chat.completions.create(model="claude-opus-4-6")${c.reset}  ${c.mute}python${c.reset}`);
+  log(`  ${c.cyan}bon start --model claude-opus-4-7${c.reset}                ${c.mute}cli${c.reset}`);
+  log(`  ${c.cyan}{"model":"claude-opus-4-7[1m]","messages":[...]}${c.reset}  ${c.mute}api.js (1M ctx)${c.reset}`);
+  log(`  ${c.cyan}c.chat.completions.create(model="gpt-5")${c.reset}        ${c.mute}python${c.reset}`);
   log('');
-  log(`  ${c.mute}source: Statsig config dump + reverse engineering${c.reset}`);
+  log(`  ${c.bold}${c.gold}199 of 213 tested models work thru bon api${c.reset}`);
+  log(`  ${c.mute}full list: ${c.cyan}https://github.com/${REPO}/blob/main/MODELS.md${c.reset}`);
+  log(`  ${c.mute}source: live test 2026-04-23 + Statsig + cli.js bundle RE${c.reset}`);
   log('');
 }
 
