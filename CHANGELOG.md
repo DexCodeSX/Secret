@@ -2,6 +2,24 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.1 — 2026-04-23
+
+**`bon ui` now self-updates.** when launched, checks `trybons/VERSION` against github, prompts Y/N if newer.
+
+new behavior:
+- on launch: `GET raw.githubusercontent.com/.../trybons/VERSION` (4s timeout, silent fail)
+- if remote semver > local: shows nice update box, asks `Y/n`
+- on Y: re-downloads all 15 trybons/ files into place, prints `updated to vX.Y.Z`
+- on n: keeps current, hints `bon ui --update` for forced pull
+- if `trybons/` folder missing entirely: offers to download it from scratch
+- `--no-update` flag skips the check (for offline / slow connections)
+- `--update` flag forces pull even if versions match
+
+manifest:
+- ships with `trybons/VERSION` file (semver, currently `1.0.1`)
+- bonsai.js has hardcoded `UI_FILES` list (15 paths)
+- bumping `trybons/VERSION` triggers update prompts on next `bon ui` for all users
+
 ## v2.5.0 — 2026-04-23
 
 new: **trybons/ web UI** — open source dashboard clone of `app.trybons.ai` runs locally, shares session w/ bon CLI.

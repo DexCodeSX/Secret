@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.0";
+const VERSION = "2.5.1";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -1971,22 +1971,95 @@ async function cmdDash() {
   process.stdout.write('\x1b[?25h'); // show cursor
 }
 
+// known trybons/ file list — used by cmdUi() update + missing-file recovery
+const UI_FILES = [
+  'VERSION', 'package.json', 'server.js', 'README.md',
+  'views/landing.ejs', 'views/login.ejs',
+  'views/partials/head.ejs', 'views/partials/foot.ejs',
+  'views/partials/nav.ejs', 'views/partials/sidebar.ejs',
+  'views/dashboard/index.ejs', 'views/dashboard/keys.ejs',
+  'views/dashboard/activity.ejs', 'views/dashboard/models.ejs',
+  'views/dashboard/settings.ejs',
+];
+
+async function pullUiFiles(uiPath) {
+  // download each file from raw.githubusercontent.com into uiPath
+  let ok = 0, fail = 0;
+  for (let f of UI_FILES) {
+    try {
+      let r = await req(`${REPO_RAW}/trybons/${f}`, { timeout: 10000 });
+      if (r.status !== 200) { fail++; continue; }
+      let dest = path.join(uiPath, f);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, typeof r.body === 'string' ? r.body : JSON.stringify(r.body, null, 2));
+      ok++;
+    } catch { fail++; }
+  }
+  return { ok, fail };
+}
+
 async function cmdUi() {
   // launch trybons UI (express + ejs + htmx + tailwind, zero build)
   let port = parseInt(process.argv.find(a => /^\d{2,5}$/.test(a))) || 3000;
   let uiPath = path.join(path.dirname(process.argv[1] || ''), 'trybons');
+  let force = process.argv.includes('--update');
+  let skipCheck = process.argv.includes('--no-update');
+
+  // missing folder entirely → offer to download
   if (!fs.existsSync(path.join(uiPath, 'server.js'))) {
     fail("trybons/ folder not found next to bonsai.js");
-    info(`download: ${c.cyan}curl -sL ${REPO_RAW}/trybons/server.js -o trybons/server.js${c.reset}`);
-    info(`or clone: ${c.cyan}git clone https://github.com/${REPO}${c.reset}`);
-    return;
+    let yes = await askYN(`${c.bold}download it now from github?${c.reset}`);
+    if (!yes) { info(`or clone: ${c.cyan}git clone https://github.com/${REPO}${c.reset}`); return; }
+    let sp = spinner('downloading trybons UI files...');
+    let r = await pullUiFiles(uiPath);
+    sp.stop();
+    if (r.fail > 0) warn(`${r.ok} ok, ${r.fail} failed — UI may be incomplete`);
+    else success(`downloaded ${r.ok} files`);
   }
+
+  // version check (unless --no-update)
+  if (!skipCheck) {
+    let localVer = '0.0.0';
+    try { localVer = fs.readFileSync(path.join(uiPath, 'VERSION'), 'utf8').trim(); } catch {}
+    try {
+      let r = await req(`${REPO_RAW}/trybons/VERSION`, { timeout: 4000 });
+      let remoteVer = (typeof r.body === 'string' ? r.body : '').trim();
+      let newer = (a, b) => {
+        let pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+        return pa[0]>pb[0] || (pa[0]===pb[0] && pa[1]>pb[1]) || (pa[0]===pb[0] && pa[1]===pb[1] && (pa[2]||0)>(pb[2]||0));
+      };
+      if (remoteVer && (force || newer(remoteVer, localVer))) {
+        log('');
+        box([
+          `${c.gold}${S.bolt}${c.reset} ${c.bold}UPDATED UI available${c.reset}`,
+          ``,
+          `  current:  ${c.dim}v${localVer}${c.reset}`,
+          `  latest:   ${c.green}v${remoteVer}${c.reset}`,
+          ``,
+          `  ${c.mute}pulls all ${UI_FILES.length} files from github${c.reset}`,
+        ], { title: 'TRYBONS UI', color: c.gold, width: 56 });
+        log('');
+        let yes = await askYN(`${c.bold}update to v${remoteVer} now?${c.reset}`);
+        if (yes) {
+          let sp = spinner('downloading...');
+          let r2 = await pullUiFiles(uiPath);
+          sp.stop();
+          if (r2.fail > 0) warn(`${r2.ok}/${UI_FILES.length} ok, ${r2.fail} failed`);
+          else success(`updated to v${remoteVer}`);
+        } else {
+          note(`skipped. run ${c.cyan}bon ui --update${c.reset}${c.mute} to force later${c.reset}`);
+        }
+      }
+    } catch {} // silent fail on version check, don't block launch
+  }
+
   // ensure deps installed
   if (!fs.existsSync(path.join(uiPath, 'node_modules'))) {
     info(`installing trybons UI deps (express + ejs)...`);
     try { execSync('npm install --silent', { cwd: uiPath, stdio: 'inherit' }); }
     catch { fail('npm install failed in trybons/'); return; }
   }
+
   info(`launching trybons UI on ${c.cyan}http://localhost:${port}${c.reset}`);
   let env = { ...process.env, PORT: String(port) };
   let child = spawn(process.execPath, [path.join(uiPath, 'server.js')], { stdio: 'inherit', env });
