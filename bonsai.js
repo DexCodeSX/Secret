@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.4.2";
+const VERSION = "2.4.3";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -1971,6 +1971,74 @@ async function cmdDash() {
   process.stdout.write('\x1b[?25h'); // show cursor
 }
 
+async function cmdCount() {
+  // free pre-flight token counter using bonsai router's undocumented endpoint.
+  // bon count "your prompt"   OR   echo "your prompt" | bon count
+  let key = getStoredKey();
+  if (!key) { fail("no api key. run: " + c.cyan + "bon login && bon keys" + c.reset); return; }
+
+  let text = process.argv.slice(3).join(' ').trim();
+  if (!text && !process.stdin.isTTY) {
+    text = await new Promise(r => {
+      let buf = ''; process.stdin.on('data', d => buf += d);
+      process.stdin.on('end', () => r(buf.trim()));
+    });
+  }
+  if (!text) {
+    fail("no input");
+    info(`usage: ${c.cyan}bon count "your prompt here"${c.reset}`);
+    info(`   or: ${c.cyan}cat file.txt | bon count${c.reset}`);
+    return;
+  }
+
+  let model = process.argv.find(a => a.startsWith('--model='))?.split('=')[1] || 'claude-opus-4-6';
+  let body = { model, messages: [{ role: 'user', content: text }] };
+
+  let sp = spinner('counting...');
+  try {
+    let r = await req(`${cfg.router}/v1/messages/count_tokens`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'authorization': `Bearer ${key}`,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+      timeout: 10000,
+    });
+    sp.stop();
+
+    let userTok = r.body?.input_tokens || 0;
+    let fingerprint = 30000; // approx, cc_system.json
+    let total = userTok + fingerprint;
+    // pricing from models.dev catalog (approx per 1M input tokens)
+    let prices = {
+      'claude-opus-4-6': 15, 'claude-opus-4-7': 15, 'claude-opus-4-5': 15,
+      'claude-sonnet-4-6': 3, 'claude-sonnet-4-5': 3,
+      'claude-haiku-4-5': 0.8,
+      'gpt-5': 1.25, 'gpt-5-mini': 0.25,
+      'o3': 2.5,
+    };
+    let priceIn = prices[model] || 3;
+    let costUsd = (total / 1e6) * priceIn;
+
+    box([
+      kv('input', `${c.gold}${c.bold}${fmtNum(userTok)}${c.reset} tokens ${c.dim}(your prompt)${c.reset}`),
+      kv('+ fingerprint', `${c.dim}~${fmtNum(fingerprint)} tokens (cc_system, every request)${c.reset}`),
+      kv('= total', `${c.gold}${c.bold}${fmtNum(total)}${c.reset} tokens per request`),
+      ``,
+      kv('model', `${c.cyan}${model}${c.reset}`),
+      kv('cost est', `${c.green}$${costUsd.toFixed(4)}${c.reset} ${c.dim}(at $${priceIn}/M, if you paid)${c.reset}`),
+      kv('your save', `${c.green}$${costUsd.toFixed(4)}${c.reset} ${c.dim}(bonsai is free)${c.reset}`),
+      ``,
+      `${c.mute}router endpoint: ${c.dim}/v1/messages/count_tokens${c.reset}${c.mute} (free, no inference)${c.reset}`,
+    ], { title: `${S.chart} TOKEN COUNT`, color: c.gold, width: 64 });
+  } catch (e) {
+    sp.stop(); fail(`count failed: ${e.message}`);
+  }
+}
+
 // -- whoami --
 async function cmdWhoami() {
   let token = await ensureToken();
@@ -2085,6 +2153,7 @@ async function main() {
       ['api', 'API proxy (OpenAI + Anthropic compat)'],
       ['agents', 'Detect & configure Cline/Cursor/Aider/etc.'],
       ['dash', 'Live dashboard for running api.js'],
+      ['count', 'Count tokens in a prompt (free, pre-flight)'],
       ['pool', 'View key pool status'],
       ['rotate', 'Launch with auto key rotation'],
       ['multi', 'Multi-account profiles'],
@@ -2243,6 +2312,7 @@ async function main() {
       case 'codex': await cmdCodex(); break;
       case 'agents': case 'tools': await cmdAgents(); break;
       case 'dash': case 'dashboard': await cmdDash(); break;
+      case 'count': case 'tokens': await cmdCount(); break;
       case 'keys': await cmdKeys(); break;
       case 'test': await cmdTest(); break;
       case 'info': await cmdInfo(); break;

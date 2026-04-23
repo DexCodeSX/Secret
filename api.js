@@ -19,7 +19,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
-const VER = "2.4.2";
+const VER = "2.4.3";
 const ROUTER = process.env.BONSAI_ROUTER_URL || "https://go.trybons.ai";
 const cfgDir = path.join(os.homedir(), '.bonsai-oss');
 const isWin = process.platform === 'win32';
@@ -577,7 +577,7 @@ function serve(port) {
       }
       if (req.url === '/' || req.url === '') {
         res.writeHead(200, json());
-        res.end(JSON.stringify({ service:'bonsai-api', version: VER, endpoints:['/v1/messages','/v1/chat/completions','/responses','/v1/models','/health','/stats'] }));
+        res.end(JSON.stringify({ service:'bonsai-api', version: VER, endpoints:['/v1/messages','/v1/messages/count_tokens','/v1/chat/completions','/responses','/v1/models','/health','/stats'] }));
         return;
       }
       res.writeHead(404, json()); res.end(JSON.stringify({error:'not found'})); return;
@@ -637,6 +637,23 @@ function serve(port) {
       }
 
       try {
+        // --- /v1/messages/count_tokens (FREE pre-flight token counter) ---
+        // bonsai router exposes this undocumented. counts user content only,
+        // returns immediately, NO inference cost. add ~30K for cc_system fingerprint.
+        if (req.url === '/v1/messages/count_tokens') {
+          let r = await fwd(`${ROUTER}/v1/messages/count_tokens`, {
+            method: 'POST',
+            headers: hdrs(key.key),
+            body: JSON.stringify(body),
+          });
+          stats.ok++;
+          let userTok = r.body?.input_tokens || 0;
+          logReq('POST', '/v1/messages/count_tokens', r.status, `${$.gld}${fmtN(userTok)}${$.r} user tok ${$.mute}+~30K fingerprint${$.r}  ${$.mute}${Date.now()-t0}ms${$.r}`);
+          res.writeHead(r.status, json());
+          res.end(JSON.stringify(r.body));
+          return;
+        }
+
         // --- /v1/messages (anthropic native) ---
         if (req.url === '/v1/messages') {
           if (isStream) {
@@ -842,6 +859,7 @@ function dashboard(port) {
     `  ${$.blu}POST${$.r}  ${$.fg}/v1/messages${$.r}            ${$.mute}anthropic native${$.r}`,
     `  ${$.vio}POST${$.r}  ${$.fg}/v1/chat/completions${$.r}    ${$.mute}openai compat${$.r}`,
     `  ${$.orn}POST${$.r}  ${$.fg}/responses${$.r}                ${$.mute}openai responses (codex)${$.r}`,
+    `  ${$.gld}POST${$.r}  ${$.fg}/v1/messages/count_tokens${$.r}  ${$.mute}FREE pre-flight counter${$.r}`,
     `  ${$.sub}GET${$.r}   ${$.fg}/v1/models${$.r}`,
     `  ${$.sub}GET${$.r}   ${$.fg}/health${$.r}  ${$.fg}/stats${$.r}`,
   ].filter(Boolean), { title: 'BONSAI API', color: $.grn });

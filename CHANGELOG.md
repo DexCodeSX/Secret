@@ -2,6 +2,24 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.4.3 — 2026-04-23
+
+found undocumented bonsai router endpoint while probing every standard LLM API path. exposed it.
+
+new:
+- **`bon count "your prompt"`** — pre-flight token counter. uses bonsai router's hidden `/v1/messages/count_tokens` endpoint (no inference, no daily-cap deduction, returns instantly). shows: user tokens + ~30K cc_system fingerprint = total per-request cost. plus $/M estimate for the chosen model.
+  - reads stdin too: `cat file.txt | bon count`
+  - `--model=<name>` to estimate against any model
+- api.js gained `POST /v1/messages/count_tokens` passthrough for SDK use
+- api.js dashboard now lists the count_tokens endpoint
+
+probe results (what bonsai router actually exposes):
+- `GET /health` — `{"status":"ok"}`
+- `GET /v1/models` — returns just `bonsai` (hides real catalog)
+- `POST /v1/messages` + `?beta=true` — chat (needs cc_system fingerprint)
+- `POST /v1/messages/count_tokens` — **FREE token counter (NEW in v2.4.3 docs)**
+- everything else 404: no embeddings, audio, images, batches, assistants, fine-tuning, admin, swagger, metrics. clean prod surface.
+
 ## v2.4.2 — 2026-04-23
 
 `bon codex` now actually uses OpenAI. before this, codex sent `gpt-5.2-codex` (its internal name) and api.js silently rewrote it to `claude-opus-4-6` — codex thought it was using GPT but the router executed Claude. since we proved bonsai router accepts real `gpt-5` / `o3` / etc (199 of 213 models work, see MODELS.md), the redirect made no sense.
