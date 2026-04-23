@@ -203,7 +203,9 @@ node api.js -p 8080    # custom port
 
 ### Supported Models
 
-**199 of 213 tested models work** through the proxy — see [MODELS.md](MODELS.md) for the full live-tested catalog. Bonsai's router transparently passes most OpenRouter-supported models. Highlights:
+> **⚠️ honest update (v2.5.7):** Statsig dump confirms `routing_mode: "fixed"` + `fixed_routing_model: anthropic/claude-opus-4.7` (reasoning high). **The router ignores the `model` field.** Every request — `gpt-5`, `gemini`, `deepseek`, anything — actually executes as **Claude Opus 4.7**. ask any "gpt-5" session "what model are u?" and it says Claude. so we get free claude opus 4.7 with 1M context but NOT actually 199 different models.
+
+**199 of 213 tested model names** are accepted by the router (so cline / cursor / codex don't crash on "model not found"), but all execute Claude underneath. See [MODELS.md](MODELS.md) for the catalog. Names worth knowing:
 
 | Family | Count | Examples |
 |---|---|---|

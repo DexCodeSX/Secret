@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.6";
+const VERSION = "2.5.7";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -490,7 +490,8 @@ function launchCodex(apiKey, extra = []) {
 
     let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', ...baseArgs, ...extra].join(' ');
     info(`router: ${c.cyan}${base}${c.reset} ${c.dim}(via api.js proxy)${c.reset}`);
-    info(`model: ${c.cyan}${userPickedModel ? '(user override)' : defaultModel}${c.reset} ${c.dim}(real OpenAI, not claude-redirected)${c.reset}`);
+    info(`model name: ${c.cyan}${userPickedModel ? '(user override)' : defaultModel}${c.reset}`);
+    note(`bonsai router ignores model selection — all reqs serve ${c.gold}claude-opus-4.7${c.reset}${c.mute} (statsig fixed_routing_model)${c.reset}`);
     let child = spawn(cmd, [], { stdio: 'inherit', env, shell: true, windowsHide: false });
     child.on('exit', code => { try { process.kill(proxy.pid); } catch {} process.exit(code || 0); });
   } else {
@@ -1495,9 +1496,13 @@ async function cmdModels() {
   log(`  ${c.cyan}{"model":"claude-opus-4-7[1m]","messages":[...]}${c.reset}  ${c.mute}api.js (1M ctx)${c.reset}`);
   log(`  ${c.cyan}c.chat.completions.create(model="gpt-5")${c.reset}        ${c.mute}python${c.reset}`);
   log('');
-  log(`  ${c.bold}${c.gold}199 of 213 tested models work thru bon api${c.reset}`);
-  log(`  ${c.mute}full list: ${c.cyan}https://github.com/${REPO}/blob/main/MODELS.md${c.reset}`);
-  log(`  ${c.mute}source: live test 2026-04-23 + Statsig + cli.js bundle RE${c.reset}`);
+  log(`  ${c.bold}${c.red}IMPORTANT — model selection is a lie${c.reset}`);
+  log(`  ${c.fg}bonsai router ignores the ${c.cyan}model${c.fg} field entirely.${c.reset}`);
+  log(`  ${c.fg}every request → ${c.gold}claude-opus-4.7${c.fg} (reasoning high)${c.reset}`);
+  log(`  ${c.mute}source: statsig ${c.dim}routing_mode:"fixed"${c.mute} + ${c.dim}fixed_routing_model${c.reset}`);
+  log('');
+  log(`  ${c.bold}${c.gold}199 of 213 model names accepted by router${c.reset} ${c.mute}(but all serve claude underneath)${c.reset}`);
+  log(`  ${c.mute}full names list: ${c.cyan}https://github.com/${REPO}/blob/main/MODELS.md${c.reset}`);
   log('');
 }
 

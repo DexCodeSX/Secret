@@ -1,8 +1,17 @@
 # models — what bonsai router actually accepts
 
-tested 213 models from litellm catalog against `go.trybons.ai` via api.js (v2.4.0). **199 worked**, 14 timed out (25s cap).
+> **⚠️ HONEST UPDATE 2026-04-23 (v2.5.7):** Statsig dump confirms:
+> ```
+> routing_mode:        "fixed"
+> fixed_routing_model: anthropic/claude-opus-4.7 (reasoning high)
+> ```
+> **the router IGNORES the `model` field entirely.** every request — `gpt-5`, `gemini`, `deepseek`, etc. — gets executed by **Claude Opus 4.7**. ask any "gpt-5" session "what model are you?" and it answers Claude. all 199 names below are accepted for client compatibility (so cline/cursor/codex don't crash on unknown model), but the actual inference is always Claude.
+>
+> still useful: bonsai = free Claude Opus 4.7 with 1M context for everyone, even if your tool is hardcoded to ask for gpt-5. just don't expect gpt-5's actual behavior.
 
-all responses come back as `model: "stealth"` (router obfuscation) but content is real.
+tested 213 model names from litellm catalog against `go.trybons.ai` via api.js (v2.4.0). **199 accepted by router** (no 4xx), 14 timed out.
+
+all responses come back as `model: "stealth"` — confirmed via statsig that the real backend is fixed to Claude regardless.
 
 date: 2026-04-23
 

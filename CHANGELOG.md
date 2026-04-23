@@ -2,6 +2,33 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.7 — 2026-04-23
+
+**honesty fix — model selection is a lie.**
+
+a user noticed: ran `bon codex` (which passes `model: gpt-5`), asked "what model are you?", got back: *"I'm powered by Claude Opus 4.7 (1M context)"*. that means our v2.4.2 commit message — "bon codex actually uses OpenAI now" — was wrong.
+
+re-pulled statsig and confirmed:
+```
+routing_mode:        "fixed"
+fixed_routing_model: anthropic/claude-opus-4.7 (reasoning high)
+```
+
+**the bonsai router ignores the `model` field entirely.** it accepts 199 of 213 names from litellm so cline/cursor/codex don't crash on "model not found", but EVERY single request executes as Claude Opus 4.7 underneath.
+
+what changed:
+- `bonsai.js` `cmdCodex()` no longer prints "(real OpenAI, not claude-redirected)" — that was wrong. now prints the truth: "bonsai router ignores model selection — all reqs serve claude-opus-4.7".
+- `bonsai.js` `cmdModels` ends with a red `IMPORTANT — model selection is a lie` block linking to statsig source.
+- `api.js` modelMap header comment rewritten to admit the truth.
+- `MODELS.md` top: big honest disclaimer block.
+- `README.md` Supported Models: same disclaimer.
+
+upside (still real): bonsai = **free Claude Opus 4.7 + 1M context + reasoning_high** for everyone. that's a $20-30/M tokens model handed out for free. just don't expect gpt-5's actual capabilities when you ask for gpt-5.
+
+**bumps:**
+- bonsai.js 2.5.6 → 2.5.7
+- api.js 2.4.3 → 2.5.7
+
 ## v2.5.5 — 2026-04-23
 
 mobile UI + multi-account UX cleanup.

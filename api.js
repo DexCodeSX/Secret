@@ -19,7 +19,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
-const VER = "2.4.3";
+const VER = "2.5.7";
 const ROUTER = process.env.BONSAI_ROUTER_URL || "https://go.trybons.ai";
 const cfgDir = path.join(os.homedir(), '.bonsai-oss');
 const isWin = process.platform === 'win32';
@@ -250,29 +250,21 @@ async function streamCollect(url, headers, body) {
 // -- format conversion --
 
 // model alias mapping — codex sends gpt models, we remap to claude
-// v2.4.2: codex now ACTUALLY uses openai. before this, gpt-* names got
-// silently rewritten to claude-* — codex thought it was using gpt but
-// the router executed claude. now we confirmed bonsai router accepts
-// real gpt-5/o3/etc (199 of 213 models worked, see MODELS.md), so we
-// pass openai names through and only remap codex-internal names that
-// the router doesn't know about (gpt-5-codex variants etc) to gpt-5.
+// v2.5.7 HONEST UPDATE: bonsai router IGNORES the model field entirely.
+// statsig confirms: routing_mode="fixed", fixed_routing_model=claude-opus-4.7.
+// every request — gpt-5, o3, gemini, whatever — gets executed as Claude.
+// the model name is only validated for compat (so codex/cline don't crash
+// on "model not found"), but the actual inference is always Claude.
+// modelMap below just keeps codex-internal aliases working as model strings;
+// none of this changes which model actually runs.
 const modelMap = {
-  // codex-internal aliases -> closest real openai model the router accepts
   'gpt-5.2-codex': 'gpt-5',
   'gpt-5-codex':   'gpt-5',
   'gpt-5.2':       'gpt-5',
   'codex-mini':    'gpt-5-mini',
-  // gpt-4.1 variants — router accepts gpt-4 family directly
   'gpt-4.1':       'gpt-4-turbo',
   'gpt-4.1-mini':  'gpt-4o-mini',
   'gpt-4.1-nano':  'gpt-4o-mini',
-  // o-series — router accepts o3/o4 directly so these are pass-through;
-  // listed here only so the table is exhaustive and someone reading
-  // this file knows nothing's being secretly rewritten
-  // 'o4-mini' -> o4-mini (pass through)
-  // 'o3'      -> o3 (pass through)
-  // 'o3-mini' -> o3-mini (pass through)
-  // 'o3-pro'  -> o3-pro (pass through)
 };
 
 function mapModel(m) { return modelMap[m] || m; }
