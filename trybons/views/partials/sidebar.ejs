@@ -11,17 +11,33 @@
     </a>
   </div>
   <nav class="flex-1 p-3 space-y-0.5">
-    <% const items = [
-      ['/dashboard', 'overview', 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'],
-      ['/dashboard/keys', 'api keys', 'M21 10h-8.35A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H13l2 2 2-2 2 2 4-4.05L21 10zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z'],
-      ['/dashboard/activity', 'activity', 'M19.36 9.43L19 8l-1.43-.36-1.43-1.43L16 5l-1.43.36L13.43 4 13 2.36 11.57 4 10 3.64 9.64 5 8.21 5.36 7 7l1.43.36L9 9l1.43-.36L11.43 9.43 12 10.86l.43-1.43L13.43 8.43 14.86 8l-.43-1.43L13 5.07 14 4 12.86 3 12 4l-.86-1L10 4l-1 1L7.86 5l1 1.14L8 7l1.14.86L9 9l1.14.86L11 9l1.14.86L12 11l1 .86L14 11l.86 1.14L16 11l.86 1.14L18 11l.86 1.14z'],
-      ['/dashboard/models', 'models', 'M12 2c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-3-9h6v2H9v-2z'],
-      ['/dashboard/settings', 'settings', 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .32.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z'],
-      ['/docs', 'docs', 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-2H6.5a.5.5 0 0 1 0-1H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z'],
-    ]; %>
+    <%
+      // Lucide-style stroke icons. each entry: [href, label, svgInnerMarkup].
+      // svg wrapper applies stroke=currentColor + stroke-width=2 so all stays consistent.
+      const items = [
+        // overview = layout-dashboard (4 panels)
+        ['/dashboard', 'overview',
+          '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'],
+        // api keys = key
+        ['/dashboard/keys', 'api keys',
+          '<circle cx="7.5" cy="15.5" r="3.5"/><path d="M10 13l8.5-8.5"/><path d="M16 6l3 3"/><path d="M14 8l3 3"/>'],
+        // activity = pulse line (a clear ECG/heartbeat) — way better than the old sparkle
+        ['/dashboard/activity', 'activity',
+          '<path d="M3 12h4l2-7 4 14 2-7h6"/>'],
+        // models = sparkles (modern AI convention, used by every AI app in 2026)
+        ['/dashboard/models', 'models',
+          '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9z"/><path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z"/>'],
+        // settings = cog
+        ['/dashboard/settings', 'settings',
+          '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'],
+        // docs = book-open (much clearer than the old book-corner shape)
+        ['/docs', 'docs',
+          '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'],
+      ];
+    %>
     <% items.forEach(([href, label, icon]) => { %>
       <a href="<%= href %>" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all <%= path === href ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-zinc-400 hover:text-white hover:bg-ink-800' %>">
-        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="<%= icon %>"/></svg>
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><%- icon %></svg>
         <%= label %>
       </a>
     <% }); %>
