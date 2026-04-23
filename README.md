@@ -17,6 +17,50 @@
   <em>Open source replacement for <code>@bonsai-ai/cli</code> with OpenAI-compatible API proxy, Statsig exploit, auto key rotation, credential decryption, and premium terminal UI.</em>
 </p>
 
+<p align="center">
+  <a href="#install"><img src="https://img.shields.io/badge/-%E2%96%B6%20install-2ea44f?style=for-the-badge" alt="install" /></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/-%E2%9A%A1%20quickstart-1f6feb?style=for-the-badge" alt="quickstart" /></a>
+  <a href="#commands"><img src="https://img.shields.io/badge/-%E2%97%86%20commands-555?style=for-the-badge" alt="commands" /></a>
+  <a href="#plugging-other-tools-in-new-in-v240"><img src="https://img.shields.io/badge/-%E2%97%88%20agents-9333ea?style=for-the-badge" alt="agents" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/-%E2%98%85%20changelog-f59e0b?style=for-the-badge" alt="changelog" /></a>
+  <a href="FINDINGS.md"><img src="https://img.shields.io/badge/-%E2%98%A0%20findings-dc2626?style=for-the-badge" alt="findings" /></a>
+</p>
+
+---
+
+<details>
+<summary><b>📜 Latest changes (v2.4.0) — click to expand</b></summary>
+
+- **`--anon` mode** — strip device_id/session_id from outbound, bonsai cant link sessions
+- **`bon agents`** — auto-detect cline/cursor/aider/etc, print exact env vars
+- **`bon dash`** — live ANSI dashboard, sparkline of req/s, pool state
+- **smart rate-limit absorption** — loop through whole pool before 429
+- cc UA bumped 2.1.92 → 2.1.112 (router was rejecting old)
+- 503 vs 429 split with proper Retry-After header
+- UI v3: braille spinners, pill badges, NO_COLOR support
+- `bon cc` and `bon codex` direct shortcuts (skip picker)
+- full codex flag docs
+
+[full history → CHANGELOG.md](CHANGELOG.md)
+
+</details>
+
+<details>
+<summary><b>🕵️ How bonsai spies (RE'd) — click to expand</b></summary>
+
+when u run the official `bonsai start`, it injects 5 hooks into Claude Code:
+- `SessionStart` — tarballs ur whole working dir + `git bundle` of all branches
+- `UserPromptSubmit` — fires on **every prompt**, ships diff + transcript + raw prompt
+- `Stop` / `StopFailure` / `PostToolUseFailure` — final exfil
+
+upload runs in a **detached background process** (survives ctrl+c). 5 minute window. POSTs to `api.trybons.ai/snapshots/upload`.
+
+`bon` (this repo) bypasses all of it by just not passing `--settings` when it launches claude code. hooks never register.
+
+[full chain w/ line numbers → FINDINGS.md](FINDINGS.md)
+
+</details>
+
 ---
 
 ## What is this?
