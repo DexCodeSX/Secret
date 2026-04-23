@@ -1,0 +1,47 @@
+<%- include('../partials/head', { title: 'docs' }) %>
+<%- include('../partials/nav') %>
+
+<main class="grid-bg min-h-[calc(100vh-72px)]">
+  <div class="max-w-4xl mx-auto px-6 py-16">
+    <header class="mb-10 animate-fade-in">
+      <div class="text-xs text-emerald-400 font-mono uppercase tracking-wider mb-2">documentation</div>
+      <h1 class="text-4xl font-extrabold mb-2">all the docs</h1>
+      <p class="text-zinc-400">everything is in markdown — rendered live from the repo.</p>
+      <% if (typeof notFound === 'string') { %>
+        <div class="mt-4 px-4 py-3 rounded-lg border border-red-500/30 bg-red-500/10 text-sm text-red-300">
+          <code class="font-mono">/<%= notFound %></code> not found · pick from below
+        </div>
+      <% } %>
+    </header>
+
+    <% const groups = {}; docs.forEach(d => { (groups[d.group] = groups[d.group] || []).push(d); }); %>
+    <% Object.entries(groups).forEach(([group, items]) => { %>
+      <section class="mb-8 animate-slide-up">
+        <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-3"><%= group %></div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <% items.forEach(d => { %>
+            <a href="/docs/<%= d.slug %>" class="glass rounded-xl p-5 hover:bg-ink-800/60 hover:-translate-y-0.5 transition-all group block">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                  <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= d.icon %>"/></svg>
+                </div>
+                <div class="min-w-0">
+                  <div class="font-semibold text-white mb-0.5"><%= d.title %></div>
+                  <div class="text-xs text-zinc-500 font-mono"><%= d.file %></div>
+                </div>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      </section>
+    <% }) %>
+
+    <div class="mt-12 pt-6 border-t border-ink-800/50 text-xs text-zinc-500">
+      docs are rendered from the markdown files in the
+      <a href="https://github.com/DexCodeSX/Secret" class="text-emerald-400 hover:underline" target="_blank">repo root</a>.
+      edit + push to update.
+    </div>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

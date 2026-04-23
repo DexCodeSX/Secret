@@ -2,6 +2,41 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.2 — 2026-04-23
+
+three new things:
+
+**1. docs IN the trybons UI** — instead of adopting Fumadocs/Nextra/Docusaurus (all force a 2nd app + Next.js build step + ~150 MB deps), extended the existing trybons server with `/docs` routes that auto-render our 5 markdown files (`README`, `CHANGELOG`, `MODELS`, `FINDINGS`, `TRYBONS_RECON`) using `marked` + tailwind typography. looks identical to fumadocs but stays zero-build.
+
+routes:
+- `/docs` — sidebar grid of all docs grouped (guides / reference / recon)
+- `/docs/:slug` — rendered markdown w/ left sidebar nav + right TOC + "edit on github" link
+- TOC auto-built from h2/h3 in source
+- code blocks, tables, blockquotes, all themed dark + emerald
+- 4 new files: `views/docs/index.ejs`, `views/docs/page.ejs`
+- new dep: `marked` ^15 (only ~80 KB)
+
+**2. OG image generation** — beautiful 1200×630 preview when sharing on twitter/discord/etc. SVG-first design (renders deterministically, no chrome layout quirks), converted via `npx svgexport`. shipped as both:
+- `trybons/og-image.svg` — editable source (pure SVG, no html/chrome)
+- `og-image.png` — generated 1200×630 (~440 KB)
+
+og meta tags injected into all trybons pages via `views/partials/head.ejs`. README displays it at top.
+
+**3. cleaner install prompt** — when `bon ui` runs and trybons/ is missing, now shows a proper boxed prompt:
+```
+╭─ INSTALL UI ─────────────────────────────────────╮
+│ ⚡ trybons UI is not installed yet               │
+│   the web dashboard is a separate folder (17 fil)│
+│   stack: express + ejs + htmx + tailwind, no buil│
+╰──────────────────────────────────────────────────╯
+? install it now? (downloads from github, ~50KB) [Y/n]
+```
+no `git clone` instructions. better English. 
+
+bumped:
+- `bonsai.js` 2.5.1 → 2.5.2
+- `trybons/VERSION` 1.0.1 → 1.1.0 (triggers update prompt for existing users)
+
 ## v2.5.1 — 2026-04-23
 
 **`bon ui` now self-updates.** when launched, checks `trybons/VERSION` against github, prompts Y/N if newer.

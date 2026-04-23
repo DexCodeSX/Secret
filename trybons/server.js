@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import https from 'https';
+import { marked } from 'marked';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || process.argv[2] || '3000');
@@ -268,6 +269,53 @@ app.get('/dashboard/models', requireAuth, async (req, res) => {
 
 app.get('/dashboard/settings', requireAuth, (req, res) => {
   res.render('dashboard/settings', { storedKey: loadKey() });
+});
+
+// ─── DOCS — auto-discover repo .md files, render via marked + tailwind typography ───
+const REPO_ROOT = path.join(__dirname, '..');
+function discoverDocs() {
+  // hand-curated list (control sidebar order + display titles)
+  let candidates = [
+    { slug: 'readme', file: 'README.md', title: 'Getting started', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', group: 'guides' },
+    { slug: 'changelog', file: 'CHANGELOG.md', title: 'Changelog', icon: 'M19 14l-7 7m0 0l-7-7m7 7V3', group: 'guides' },
+    { slug: 'models', file: 'MODELS.md', title: 'Models catalog', icon: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z', group: 'reference' },
+    { slug: 'findings', file: 'FINDINGS.md', title: 'Bonsai CLI RE', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z', group: 'recon' },
+    { slug: 'recon', file: 'TRYBONS_RECON.md', title: 'trybons.ai surface map', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7', group: 'recon' },
+  ];
+  return candidates.filter(c => fs.existsSync(path.join(REPO_ROOT, c.file)));
+}
+
+// configure marked: GFM tables, headerIds, strip leading anchor links
+marked.setOptions({ gfm: true, breaks: false, headerIds: false, mangle: false });
+
+app.get('/docs', (req, res) => {
+  let docs = discoverDocs();
+  res.render('docs/index', { docs });
+});
+
+app.get('/docs/:slug', (req, res) => {
+  let docs = discoverDocs();
+  let doc = docs.find(d => d.slug === req.params.slug);
+  if (!doc) return res.status(404).render('docs/index', { docs, notFound: req.params.slug });
+  let raw = '';
+  try { raw = fs.readFileSync(path.join(REPO_ROOT, doc.file), 'utf8'); } catch { raw = '_could not read file_'; }
+  // strip the html badge nav at top of README (keep doc focused)
+  raw = raw.replace(/<p align="center">[\s\S]*?<\/p>\s*/g, '');
+  // extract h1 for page title fallback
+  let html = marked.parse(raw);
+  // build TOC from h2/h3
+  let toc = [];
+  let tocRegex = /<h([23])>([^<]+)<\/h[23]>/g; let m;
+  while ((m = tocRegex.exec(html))) {
+    let id = m[2].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    toc.push({ level: parseInt(m[1]), text: m[2], id });
+  }
+  // inject ids into h2/h3
+  html = html.replace(/<h([23])>([^<]+)<\/h[23]>/g, (full, lvl, txt) => {
+    let id = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return `<h${lvl} id="${id}"><a href="#${id}" class="anchor">${txt}</a></h${lvl}>`;
+  });
+  res.render('docs/page', { docs, doc, html, toc });
 });
 
 // ─── start ───

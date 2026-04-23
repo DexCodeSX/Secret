@@ -8,6 +8,7 @@
       <span class="text-xs text-zinc-500 font-mono px-1.5 py-0.5 rounded bg-zinc-800/50">ui</span>
     </a>
     <div class="flex items-center gap-1">
+      <a href="/docs" class="px-3 py-1.5 text-sm <%= path.startsWith('/docs') ? 'text-emerald-400' : 'text-zinc-400 hover:text-white' %> transition-colors">docs</a>
       <% if (loggedIn) { %>
         <a href="/dashboard" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors">dashboard</a>
         <form method="post" action="/logout" class="inline">

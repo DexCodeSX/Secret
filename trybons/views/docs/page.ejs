@@ -1,0 +1,83 @@
+<%- include('../partials/head', { title: doc.title }) %>
+<%- include('../partials/nav') %>
+
+<style>
+  /* tailwind typography overrides — fumadocs-style dark theme */
+  .prose-doc { color: #d4d4d8; max-width: none; }
+  .prose-doc h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1rem; color: #fff; letter-spacing: -0.02em; }
+  .prose-doc h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 1rem; color: #fff; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .prose-doc h3 { font-size: 1.15rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #fff; }
+  .prose-doc h4 { font-size: 1rem; font-weight: 600; margin-top: 1.5rem; color: #e5e5e5; }
+  .prose-doc p { margin: 0.85em 0; line-height: 1.7; color: #d4d4d8; }
+  .prose-doc a { color: #34d399; text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  .prose-doc a:hover { border-bottom-color: #34d399; }
+  .prose-doc a.anchor { color: inherit; }
+  .prose-doc a.anchor:hover { color: #34d399; }
+  .prose-doc strong { color: #fff; font-weight: 600; }
+  .prose-doc em { color: #e5e5e5; }
+  .prose-doc code { background: #1a1a1a; padding: 0.15em 0.4em; border-radius: 0.25rem; font-size: 0.875em; color: #34d399; font-family: 'JetBrains Mono', monospace; border: 1px solid rgba(255,255,255,0.04); }
+  .prose-doc pre { background: #0f0f0f; border: 1px solid rgba(255,255,255,0.06); border-radius: 0.5rem; padding: 1rem 1.25rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85em; }
+  .prose-doc pre code { background: none; padding: 0; color: #d4d4d8; border: none; }
+  .prose-doc ul, .prose-doc ol { padding-left: 1.5rem; margin: 0.85em 0; }
+  .prose-doc li { margin: 0.35em 0; line-height: 1.65; }
+  .prose-doc li > p { margin: 0.25em 0; }
+  .prose-doc blockquote { border-left: 3px solid #10b981; padding-left: 1rem; margin: 1rem 0; color: #a1a1aa; font-style: italic; }
+  .prose-doc hr { border-color: rgba(255,255,255,0.08); margin: 2rem 0; }
+  .prose-doc table { width: 100%; margin: 1rem 0; border-collapse: collapse; font-size: 0.875em; }
+  .prose-doc th { text-align: left; font-weight: 600; color: #fff; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+  .prose-doc td { padding: 0.5rem 0.75rem; border: 1px solid rgba(255,255,255,0.06); color: #d4d4d8; }
+  .prose-doc tr:hover td { background: rgba(255,255,255,0.02); }
+  .prose-doc img { border-radius: 0.5rem; margin: 1rem 0; }
+</style>
+
+<main class="grid-bg min-h-[calc(100vh-72px)]">
+  <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-12 gap-8">
+
+    <!-- left sidebar: doc list -->
+    <aside class="col-span-12 lg:col-span-3 lg:sticky lg:top-24 lg:self-start">
+      <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-3">documentation</div>
+      <% const groups = {}; docs.forEach(d => { (groups[d.group] = groups[d.group] || []).push(d); }); %>
+      <% Object.entries(groups).forEach(([group, items]) => { %>
+        <div class="mb-5">
+          <div class="text-xs text-zinc-600 uppercase tracking-wider mb-2 px-2"><%= group %></div>
+          <div class="space-y-0.5">
+            <% items.forEach(d => { %>
+              <a href="/docs/<%= d.slug %>" class="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md transition-colors <%= d.slug === doc.slug ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-zinc-400 hover:text-white hover:bg-ink-800/60' %>">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= d.icon %>"/></svg>
+                <span class="truncate"><%= d.title %></span>
+              </a>
+            <% }) %>
+          </div>
+        </div>
+      <% }) %>
+      <a href="/docs" class="text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1 px-2 py-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        all docs
+      </a>
+    </aside>
+
+    <!-- main content -->
+    <article class="col-span-12 lg:col-span-7 prose-doc max-w-none animate-fade-in"><%- html %></article>
+
+    <!-- right sidebar: TOC -->
+    <aside class="col-span-12 lg:col-span-2 lg:sticky lg:top-24 lg:self-start hidden lg:block">
+      <% if (toc.length > 0) { %>
+        <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-3">on this page</div>
+        <nav class="space-y-1 text-sm border-l border-ink-800 pl-3">
+          <% toc.forEach(t => { %>
+            <a href="#<%= t.id %>" class="block <%= t.level === 3 ? 'pl-3' : '' %> py-1 text-zinc-500 hover:text-emerald-400 transition-colors leading-tight">
+              <%= t.text %>
+            </a>
+          <% }) %>
+        </nav>
+      <% } %>
+      <a href="https://github.com/DexCodeSX/Secret/blob/main/<%= doc.file %>" target="_blank" class="mt-6 inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        edit on github
+      </a>
+    </aside>
+
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

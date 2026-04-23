@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.4.0-green?style=for-the-badge" />
+  <img src="og-image.png" alt="bonsai.js — free frontier coding models" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.5.2-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue?style=for-the-badge&logo=node.js" />
   <img src="https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos%20%7C%20termux-purple?style=for-the-badge" />
   <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" />

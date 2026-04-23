@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.1";
+const VERSION = "2.5.2";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -1980,6 +1980,7 @@ const UI_FILES = [
   'views/dashboard/index.ejs', 'views/dashboard/keys.ejs',
   'views/dashboard/activity.ejs', 'views/dashboard/models.ejs',
   'views/dashboard/settings.ejs',
+  'views/docs/index.ejs', 'views/docs/page.ejs',
 ];
 
 async function pullUiFiles(uiPath) {
@@ -2005,16 +2006,26 @@ async function cmdUi() {
   let force = process.argv.includes('--update');
   let skipCheck = process.argv.includes('--no-update');
 
-  // missing folder entirely → offer to download
+  // missing folder entirely → offer to install (no git clone needed)
   if (!fs.existsSync(path.join(uiPath, 'server.js'))) {
-    fail("trybons/ folder not found next to bonsai.js");
-    let yes = await askYN(`${c.bold}download it now from github?${c.reset}`);
-    if (!yes) { info(`or clone: ${c.cyan}git clone https://github.com/${REPO}${c.reset}`); return; }
+    log('');
+    box([
+      `${c.gold}${S.bolt}${c.reset} ${c.bold}trybons UI is not installed yet${c.reset}`,
+      ``,
+      `  the web dashboard is a separate folder (${UI_FILES.length} files)`,
+      `  ${c.dim}stack: express + ejs + htmx + tailwind, no build step${c.reset}`,
+    ], { title: 'INSTALL UI', color: c.gold, width: 56 });
+    log('');
+    let yes = await askYN(`${c.bold}install it now?${c.reset} ${c.dim}(downloads from github, ~50KB)${c.reset}`);
+    if (!yes) {
+      info(`skipped. run ${c.cyan}bon ui${c.reset} again when ready.`);
+      return;
+    }
     let sp = spinner('downloading trybons UI files...');
     let r = await pullUiFiles(uiPath);
     sp.stop();
-    if (r.fail > 0) warn(`${r.ok} ok, ${r.fail} failed — UI may be incomplete`);
-    else success(`downloaded ${r.ok} files`);
+    if (r.fail > 0) { fail(`${r.ok} ok, ${r.fail} failed — try again`); return; }
+    success(`installed ${r.ok} files into ${c.cyan}${uiPath}${c.reset}`);
   }
 
   // version check (unless --no-update)
