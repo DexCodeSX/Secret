@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.5.2-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/version-2.5.5-green?style=for-the-badge" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-blue?style=for-the-badge&logo=node.js" />
   <img src="https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos%20%7C%20termux-purple?style=for-the-badge" />
   <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" />
@@ -30,22 +30,28 @@
   <a href="trybons/"><img src="https://img.shields.io/badge/-%F0%9F%96%A5%20web%20ui-0ea5e9?style=for-the-badge" alt="ui" /></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/-%E2%98%85%20changelog-f59e0b?style=for-the-badge" alt="changelog" /></a>
   <a href="FINDINGS.md"><img src="https://img.shields.io/badge/-%E2%98%A0%20findings-dc2626?style=for-the-badge" alt="findings" /></a>
+  <a href="TRYBONS_RECON.md"><img src="https://img.shields.io/badge/-%E2%97%88%20recon-7c3aed?style=for-the-badge" alt="recon" /></a>
 </p>
 
 ---
 
 <details>
-<summary><b>📜 Latest changes (v2.4.0) — click to expand</b></summary>
+<summary><b>📜 Latest changes (v2.5.5) — click to expand</b></summary>
 
-- **`--anon` mode** — strip device_id/session_id from outbound, bonsai cant link sessions
-- **`bon agents`** — auto-detect cline/cursor/aider/etc, print exact env vars
-- **`bon dash`** — live ANSI dashboard, sparkline of req/s, pool state
-- **smart rate-limit absorption** — loop through whole pool before 429
-- cc UA bumped 2.1.92 → 2.1.112 (router was rejecting old)
-- 503 vs 429 split with proper Retry-After header
-- UI v3: braille spinners, pill badges, NO_COLOR support
-- `bon cc` and `bon codex` direct shortcuts (skip picker)
-- full codex flag docs
+**v2.5.x — web UI + docs in browser**
+- **`bon ui`** — launches a full local web dashboard on `http://localhost:3000` (express + ejs + htmx + tailwind, zero build, ~5 MB deps). shares session w/ `bon` CLI via `~/.bonsai-oss/`. mobile responsive (hamburger drawer, stacked grids). multi-account dropdown w/ click-to-switch + smart "+ add another account" auto-flow.
+- **docs in the UI** — `/docs` route auto-renders all 5 markdown files (`README`, `CHANGELOG`, `MODELS`, `FINDINGS`, `TRYBONS_RECON`) using marked + tailwind typography. fumadocs-style sidebar + TOC. fetches from github raw w/ 1h cache so works from any install location.
+- **`bon count "your prompt"`** — pre-flight token counter using bonsai router's undocumented `/v1/messages/count_tokens` endpoint. ZERO inference cost. shows user tokens + ~30K cc_system fingerprint = total per-request, plus $/M estimate.
+- **OG image** — beautiful 1200×630 social preview (SVG-first source, deterministic render). injected as `og:image` meta into all UI pages.
+- **`bon ui` self-update** — checks `trybons/VERSION` against github on launch, prompts Y/N if newer. auto-installs trybons/ folder if missing (no `git clone` needed).
+- lucide stroke icons (fixes "models" rendering as "no entry" sign).
+
+**v2.4.x — anti-spy + 199 models confirmed**
+- `--anon` mode — per-request random `device_id`/`session_id`, neutralized OS headers
+- `bon agents` — auto-detect cline/cursor/aider/etc + print exact config
+- `bon dash` — live ANSI dashboard for running api.js
+- `bon codex` now actually uses OpenAI (was silently mapped to claude)
+- **199 of 213 models tested confirmed working** — see [MODELS.md](MODELS.md)
 
 [full history → CHANGELOG.md](CHANGELOG.md)
 
@@ -83,13 +89,22 @@ upload runs in a **detached background process** (survives ctrl+c). 5 minute win
 - **Exposes an OpenAI-compatible API** — use Bonsai models from curl, Python, any SDK
 - **Dumps Statsig feature flags** — reveals real rate limits, model names, provider routing
 
-## What's new in v2.4.0
+## What's new in v2.5.x (latest)
 
-- **`--anon` mode** — strips every stable identifier the Bonsai router uses to correlate sessions. Per-request random `device_id`, `session_id`, `x-claude-code-session-id`, neutralized OS/arch headers. Bonsai's analytics see opaque hashes instead of "user X on Windows machine ABC". Pass `--anon` to `bon api` or set `BONSAI_ANON=1`. Costs nothing, breaks their tracking.
-- **`bon agents`** — auto-detects every AI coding tool installed on your machine (Claude Code, Codex, Cline, Cursor, Continue, Roo Code, Aider, OpenCode, Bonsai forks) and prints the exact env-var or settings snippet to wire it through `api.js`. One command, zero guessing.
-- **`bon dash`** — live ANSI dashboard polling `api.js /stats` every 1s. Shows version, uptime, request count + ok/err split, token totals, full pool state with active-key indicator, fresh/limited counts, and a 30-second req/s sparkline. Refresh-in-place, `Ctrl+C` to exit.
-- **Smarter rate-limit absorption** — when Cline / Cursor / any client hits a key that's exhausted, `api.js` now loops through every fresh pooled key transparently within the same request. The client only sees `429` if **every** key is dead. No more "1 key limit kills my whole session" surprises.
-- **`/stats` exposes pool view** — the JSON now includes `pool[]` (with active/limited/masked-key per entry), `poolFresh`, `poolLimited`, `anon` flag, and `version`. `bon dash` consumes this; you can too.
+- **`bon ui`** — full web dashboard at `http://localhost:3000`. express + ejs + htmx + tailwind, **zero build step**. shares session w/ bon CLI. mobile responsive, multi-account dropdown, `/docs` browser. see [trybons/](trybons/).
+- **`bon count "prompt"`** — free pre-flight token counter (bonsai router has an undocumented `/v1/messages/count_tokens` endpoint). zero inference cost.
+- **OG image** for social previews — 1200×630 PNG generated from SVG, injected as og:image on all UI pages.
+- **`bon ui` auto-installs + self-updates** — missing trybons/ folder? prompts to download. newer version on github? prompts to update. no `git clone` needed.
+- **199 of 213 models confirmed working** through bonsai router (see [MODELS.md](MODELS.md)) — including GPT-5, Gemini 2.5/3.1, Claude Opus 4.7, Haiku 4.5, GLM-4.7, Qwen 3.5, DeepSeek V3.2, Mixtral, Kimi K2.5, Cohere Command, MiniMax M2.1, Llama, gpt-oss-120b.
+
+## v2.4.x highlights
+
+- **`--anon` mode** — per-request random `device_id`/`session_id`/`x-claude-code-session-id`, neutralized OS headers. bonsai router can't correlate sessions across time. set `BONSAI_ANON=1` or pass `--anon`.
+- **`bon agents`** — auto-detects cline/cursor/aider/continue/roo/opencode + prints exact config snippets.
+- **`bon dash`** — live ANSI dashboard, req/s sparkline, pool state.
+- **`bon codex` now actually uses OpenAI** — was secretly mapping to claude before v2.4.2.
+- **smarter rate-limit absorption** — api.js loops through whole key pool before returning 429.
+- **`/stats` exposes pool view** — `pool[]`, `poolFresh`, `poolLimited`, `anon`, `version`. `bon dash` consumes this; you can too.
 
 ## What was new in v2.3.0
 
@@ -164,9 +179,13 @@ node bonsai.js --help
 
 ```bash
 bon login              # authenticate with Bonsai
-bon start              # launch Claude Code
-bon start --resume     # resume last session
-bon start --continue   # continue last conversation
+bon start              # launch Claude Code (picker)
+bon cc                 # direct claude code (skip picker)
+bon codex              # direct codex w/ openai routing
+bon ui                 # NEW: web dashboard at localhost:3000
+bon api                # OpenAI-compatible proxy on :4000
+bon agents             # detect what's installed (cline/cursor/aider/etc)
+bon count "your text"  # free pre-flight token counter
 ```
 
 ## API Proxy (new in v2.0.0, major upgrade in v2.1.0)
@@ -184,19 +203,26 @@ node api.js -p 8080    # custom port
 
 ### Supported Models
 
-All models work through the proxy. The router appears to route everything through OpenRouter regardless of model param.
+**199 of 213 tested models work** through the proxy — see [MODELS.md](MODELS.md) for the full live-tested catalog. Bonsai's router transparently passes most OpenRouter-supported models. Highlights:
 
-| Model ID | Context | Note |
-|----------|---------|------|
-| `claude-opus-4-6` | 1M tokens | Default, most capable |
-| `claude-sonnet-4-6` | 200K | Fast, good quality |
-| `claude-opus-4-5` | 200K | Previous gen Opus |
-| `claude-sonnet-4-5` | 200K | Previous gen Sonnet |
-| `claude-sonnet-4-20250514` | 200K | Dated Sonnet build |
-| `glm-4.7` | 128K | Chinese model (8 providers) |
+| Family | Count | Examples |
+|---|---|---|
+| **Claude** | 21 | `claude-opus-4-7`, `claude-opus-4-6` (default, 1M ctx), `claude-opus-4-6-fast`, `claude-haiku-4-5` |
+| **OpenAI** | 75 | `gpt-5`, `o3`, `o3-mini`, `gpt-oss-120b`, `gpt-realtime-mini` |
+| **Gemini** | 29 | `gemini-2.5-flash`, `gemini-3.1-flash-live-preview`, `gemini-pro-latest` |
+| **DeepSeek** | 11 | `deepseek-v3-2-251201`, `deepseek-reasoner` |
+| **Qwen** | 9 | `Qwen3.5-397B-A17B`, `Qwen3-Next-80B-A3B-Thinking` |
+| **GLM (Z-AI)** | 4 | `z-ai/glm-4.7`, `glm-4-7-251222` |
+| **Mistral** | 7 | `Mixtral-8x7B-Instruct`, `codestral-latest` |
+| **MiniMax** | 5 | `minimax/MiniMax-M2.1`, `M2.1-lightning` |
+| **Kimi** | 4 | `kimi-k2-thinking-251104`, `Kimi-K2.5` |
+| **Llama / Cohere / Perplexity / others** | 34 | Llama 3.1 405B, command-r-plus, sonar |
+
+1M context modifier: append `[1m]` to opus models (`claude-opus-4-7[1m]`).
 
 ```bash
-bon models             # list all supported models
+bon models             # CLI: highlights w/ links
+bon ui                 # web: full clickable catalog at /dashboard/models
 ```
 
 ### Endpoints
@@ -204,11 +230,12 @@ bon models             # list all supported models
 | Method | Path | Format |
 |--------|------|--------|
 | `POST` | `/v1/messages` | Anthropic native (passthrough) |
+| `POST` | `/v1/messages/count_tokens` | **Free** Anthropic token counter (no inference) |
 | `POST` | `/v1/chat/completions` | OpenAI compatible (auto-translated) |
 | `POST` | `/responses` | OpenAI Responses API (Codex) |
 | `GET` | `/v1/models` | Model list with metadata |
 | `GET` | `/health` | Health check |
-| `GET` | `/stats` | Session statistics |
+| `GET` | `/stats` | Session stats + pool view (used by `bon dash`) |
 
 ### Usage examples
 
@@ -275,6 +302,33 @@ export OPENAI_API_KEY=anything
 - Session stats on shutdown (requests, tokens, estimated savings)
 - Daily limit auto-clear at midnight UTC
 
+## Web UI (new in v2.5.0)
+
+`bon ui` launches a local web dashboard — full multi-page UI with auth, dashboard, key management, activity history, model picker, settings, and docs viewer. **Zero build step.** Express + EJS + HTMX + Tailwind via CDN. ~5 MB total deps.
+
+```bash
+bon ui                 # auto-installs trybons/ if missing, boots :3000
+bon ui 8080            # custom port
+bon ui --update        # force-pull latest UI from github
+bon ui --no-update     # skip update check (offline)
+```
+
+Features:
+
+| feature | what |
+|---|---|
+| **shared session** | reads `~/.bonsai-oss/auth.json` so it follows `bon login` state |
+| **WorkOS device code** | sign in via QR/code in browser, htmx polls for completion |
+| **multi-account dropdown** | click avatar in sidebar, switch accounts, "+ add another account" auto-flow |
+| **`/docs` browser** | renders all 5 markdown files (README, CHANGELOG, MODELS, FINDINGS, RECON) w/ sidebar + TOC + edit-on-github |
+| **mobile responsive** | hamburger drawer on mobile, stacked grids, 44px tap targets |
+| **self-update** | checks `trybons/VERSION` against github on launch, prompts Y/N |
+| **OG image** | 1200×630 social preview baked into all pages |
+
+Cross-platform: tested on Windows, Linux, macOS, Termux. Pure Node 18+, no native deps.
+
+See [trybons/README.md](trybons/) for stack details.
+
 ## Commands
 
 | Command | Description |
@@ -282,10 +336,12 @@ export OPENAI_API_KEY=anything
 | `bon login` | Authenticate via WorkOS device code flow |
 | `bon logout` | Clear stored credentials |
 | `bon start` | Launch Claude Code, Codex, or custom tool (picker) |
-| `bon cc` | **New in 2.3.0** — direct Claude Code launch, skip picker |
-| `bon codex` | **New in 2.3.0** — direct Codex launch, skip picker |
+| `bon cc` | Direct Claude Code launch, skip picker |
+| `bon codex` | **v2.4.2 routes to real OpenAI** — direct Codex launch (gpt-5 default) |
 | `bon resume` | Resume last Claude Code session |
 | `bon continue` | Continue last conversation |
+| `bon ui` | **NEW v2.5.0** — web dashboard at localhost:3000 (auto-installs trybons/) |
+| `bon count "text"` | **NEW v2.4.3** — free pre-flight token counter |
 | `bon keys` | API key management (list/create/delete/reveal/import) |
 | `bon test` | Test all API endpoints with status badges |
 | `bon info` | Show account, config, and consent status |
@@ -296,15 +352,15 @@ export OPENAI_API_KEY=anything
 | `bon health` | Service status check with response times |
 | `bon proxy [port]` | Local proxy server with streaming + token tracking |
 | `bon proxy --rotate` | Proxy with auto key rotation on limit hit |
-| `bon api` | Launch API proxy server (api.js). Add `--anon` for surveillance-stripping mode. |
-| `bon agents` | **New 2.4.0** — Detect & configure Cline/Cursor/Aider/Continue/Roo/etc. |
-| `bon dash` | **New 2.4.0** — Live dashboard for running api.js (req/s sparkline, pool state) |
-| `bon models` | List all supported models with routing info |
+| `bon api [--anon]` | Launch API proxy (api.js). `--anon` strips correlation IDs |
+| `bon agents` | Detect & configure Cline/Cursor/Aider/Continue/Roo/etc. |
+| `bon dash` | Live ANSI dashboard for running api.js (req/s sparkline, pool state) |
+| `bon models` | List supported models with routing info |
 | `bon bench` | Benchmark all models (speed, tok/s, ranked table) |
 | `bon fingerprint` | What the router sees about you |
 | `bon pool` | View key pool status (fresh vs limited) |
 | `bon rotate` | Launch Claude Code with auto key rotation |
-| `bon multi` | Multi-account profile management |
+| `bon multi` | Multi-account profile management (CLI; UI version in `bon ui`) |
 | `bon steal` | Decrypt & import official CLI credentials |
 | `bon snoop` | Explain Bonsai's data collection (updated for 0.4.13) |
 | `bon statsig` | Exploit Statsig to dump internal configs |
@@ -374,9 +430,10 @@ bon start --max-turns 10 --print "task"    # limit turns in headless mode
 All `@bonsai-ai/codex` (= `@openai/codex`) flags work. Use `bon codex <subcommand> [flags]` for a fast path; the api.js proxy handles `/responses` translation transparently.
 
 ```bash
-bon codex                                  # interactive TUI
+bon codex                                  # interactive TUI (defaults to gpt-5)
 bon codex exec "refactor api.js"           # one-shot, non-interactive
-bon codex --model gpt-5.2-codex            # picks model (mapped via api.js)
+bon codex --model gpt-5.2-codex            # codex's internal name → maps to gpt-5
+bon codex --model claude-opus-4-7          # use claude via codex (override)
 bon codex --full-auto                      # sandboxed auto-execution
 bon codex -s workspace-write               # sandbox policy
 bon codex resume --last                    # resume most recent session
@@ -458,9 +515,11 @@ bon statsig
 | Daily token limit | **20,000,000 tokens** |
 | Hourly token limit | **40,000,000 tokens** |
 | Provider | **OpenRouter** (not direct Anthropic) |
-| Models behind "stealth" | Claude Sonnet 4.5, Claude Sonnet 4.6, Claude Opus 4.5, Claude Opus 4.6 |
-| GLM-4.7 routing | 8 providers (Google, DeepInfra, Nebius, Novita, Lambda, Hyperbolic, Kluster, Inference.net) |
-| Snapshot max size | **1024 MB** |
+| Models behind "stealth" | Claude Opus 4.5/4.6/4.7, Sonnet 4.5/4.6, Haiku 4.5, GPT-5, Gemini, GLM-4.7, Llama, +many more (199 confirmed) |
+| GLM-4.7 routing | 8 providers (gmicloud, mancer, siliconflow, deepinfra, atlas-cloud, parasail, novita, z-ai) |
+| MiniMax M2.1 routing | 7 providers (deepinfra, minimax, fireworks, atlas-cloud, novita, gmicloud, minimax-lightning) |
+| Snapshot max size | **1024 MB** (server-tunable per user via Statsig) |
+| `cli_snapshot_enabled` | true (default for all users — A/B-testable per account) |
 
 The router (`go.trybons.ai`) proxies to **OpenRouter**, not directly to Anthropic. Your requests go: `bonsai.js -> go.trybons.ai -> OpenRouter -> Anthropic/Google/etc`.
 
@@ -543,14 +602,22 @@ Datadog:         pubb28ba93eb59013963476c6dd6c190040
 
 ## Infrastructure
 
+Full RE'd surface map → [TRYBONS_RECON.md](TRYBONS_RECON.md). Summary:
+
 | Service | URL | Stack |
 |---------|-----|-------|
-| Marketing | trybons.ai | Next.js + Vercel |
-| App | app.trybons.ai | Vite + React |
-| API | api.trybons.ai | FastAPI + Fly.io |
-| Router | go.trybons.ai | Proxy -> OpenRouter |
-| Auth | auth.trybons.ai | WorkOS |
-| Staging | api-staging.trybons.ai | DNS unreachable |
+| Marketing | www.trybons.ai | Next.js 19.2-canary + Vercel + CF |
+| App | app.trybons.ai | Vite + React + Vercel + CF + GTM + Segment |
+| API | api.trybons.ai | FastAPI + Fly.io + CF |
+| Router | go.trybons.ai | Fly.io (no CF) → OpenRouter |
+| Auth | auth.trybons.ai | **Next.js 14.2.35 + WorkOS hosted-authkit** + CF |
+| Docs | docs.trybons.ai | Mintlify + Vercel |
+| **SSO** | **sso.trybons.ai** | Envoy + CF (NEW, found in v2.5 recon) |
+| **Forms** | **forms.trybons.ai** | Vercel form handler (NEW) |
+| **Realtime** | **rt.trybons.ai** | likely WebSocket (NEW) |
+| Staging | api-staging.trybons.ai | DNS unreachable from edge |
+
+`auth.trybons.ai` shipped sourcemaps to production — 4.4 MB of original TypeScript recovered including live Sentry DSN + Datadog tokens. Full chain documented in [TRYBONS_RECON.md](TRYBONS_RECON.md).
 
 ## Environment Variables
 
