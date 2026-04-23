@@ -2,6 +2,55 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.5 — 2026-04-23
+
+mobile UI + multi-account UX cleanup.
+
+**fix: multi-account switch "stuck on Cis ez"**
+
+root cause: if u only have ONE bonsai account (everyone's situation by default), all saved profiles contain the SAME tokens for the same email. clicking "switch" between them reloads the page but renders the same user → looks stuck.
+
+new flow:
+- profile dropdown hides "switch to" section if no other-email profiles exist
+- shows clear amber warning: "only one account saved. all N profiles use the same email so switching won't change anything"
+- new big **"+ add another account"** button at top of dropdown that does the right thing in ONE click:
+  1. saves current under email-derived auto-name (e.g. `cisez123_gmail_com`)
+  2. clears `~/.bonsai-oss/auth.json` + `apikey.json`
+  3. redirects to `/login` for fresh sign-in
+- new route: `POST /profiles/add-account`
+
+**mobile UI (responsive)**
+
+- mobile (<lg): sidebar becomes a drawer behind hamburger top-left, brand centered, user avatar top-right
+- drawer slides in w/ overlay backdrop, closes when nav link clicked
+- all dashboard wrappers: `lg:flex lg:h-screen lg:overflow-hidden` (desktop only)
+- stat tiles: `grid-cols-2 lg:grid-cols-4`
+- activity table: desktop = grid, mobile (<md) = stacked card layout
+- all sidebar items + buttons: `min-h-[44px]` (Apple's tap-target minimum)
+- profile dropdown: `max-h-[80vh]` so it fits on phone
+
+verified live at 375×812 (iPhone), 768×1024 (iPad), desktop.
+
+bumps: bonsai.js 2.5.4 → 2.5.5, trybons/VERSION 1.2.1 → 1.3.0
+
+## v2.5.4 — 2026-04-23
+
+lucide stroke icons in sidebar (icon fix).
+
+before: filled material icons. **"models" rendered as a minus-in-circle "no entry" sign**, "activity" was a confusing sparkle pattern.
+
+after: lucide-style stroke icons (the 2026 standard, what shadcn uses):
+- overview     → layout-dashboard (4-panel grid)
+- api keys     → key (cleaner)
+- activity     → ECG pulse waveform
+- models       → ✨ sparkles (modern AI convention)
+- settings     → gear
+- docs         → book-open
+
+all `fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'` for consistency.
+
+bumps: bonsai.js 2.5.3 → 2.5.4, trybons/VERSION 1.2.0 → 1.2.1
+
 ## v2.5.3 — 2026-04-23
 
 bug fix + multi-account UI.
