@@ -1735,6 +1735,9 @@ async function cmdFingerprint() {
   banner();
   let key = getStoredKey();
   let auth = loadJson(cfg.tokenFile);
+  // auth.json doesn't persist email — fetch live via /auth/user
+  let user = null;
+  try { user = await getUser(); } catch {}
   let hostname = os.hostname();
   let username = os.userInfo().username;
   let platform = detectPlatform();
@@ -1782,7 +1785,7 @@ async function cmdFingerprint() {
     `  ${c.dim}token age${c.reset}    ${c.fg}${tokenAge}${c.reset}`,
     `  ${c.dim}session${c.reset}      ${c.dim}${sessionHash}${c.reset}`,
     `  ${c.dim}api key${c.reset}      ${key ? c.green + maskKey(key) + c.reset : c.red + 'none' + c.reset}`,
-    `  ${c.dim}account${c.reset}      ${c.fg}${auth?.email || '?'}${c.reset}`,
+    `  ${c.dim}account${c.reset}      ${c.fg}${user?.email || auth?.email || '?'}${c.reset}`,
     ``,
     `${c.bold}${c.fg}Router Sees${c.reset}`,
     `  ${c.dim}x-api-key${c.reset}        ${key ? maskKey(key) : 'none'}`,
