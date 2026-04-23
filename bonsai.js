@@ -322,7 +322,7 @@ function detectPlatform() {
 function detectInstallMethod() {
   let scriptPath = process.argv[1] || '';
   let lower = scriptPath.toLowerCase().replace(/\\/g, '/');
-  if (lower.includes('node_modules/@dexcodesx/bon')) return 'npm';
+  if (lower.includes('node_modules/@dexcodesxs/bon')) return 'npm';
   if (lower.includes('/.bonsai-oss/bonsai.js') || lower.includes('/.bonsai-oss/bin/')) return 'script';
   return 'unknown';
 }
@@ -337,7 +337,7 @@ async function performSelfUpdate() {
       `  v2.5.8+ ships via ${c.cyan}npm${c.reset}. one cmd, cross-platform updates.`,
       ``,
       `  ${c.bold}migrate now:${c.reset}`,
-      `    ${c.cyan}npm i -g @dexcodesx/bon${c.reset}`,
+      `    ${c.cyan}npm i -g @dexcodesxs/bon${c.reset}`,
       ``,
       `  then optionally remove the old wrapper:`,
       `    ${c.dim}rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js${c.reset}`,
@@ -345,16 +345,16 @@ async function performSelfUpdate() {
       `  ${c.dim}your auth + keys + profiles in ~/.bonsai-oss/ stay intact.${c.reset}`,
     ], { title: 'NPM MIGRATION', color: c.gold, width: 64 });
     log('');
-    let yes = await askYN(`${c.bold}run ${c.cyan}npm i -g @dexcodesx/bon${c.reset}${c.bold} now?${c.reset}`);
+    let yes = await askYN(`${c.bold}run ${c.cyan}npm i -g @dexcodesxs/bon${c.reset}${c.bold} now?${c.reset}`);
     if (yes) {
       try {
-        execSync('npm i -g @dexcodesx/bon', { stdio: 'inherit', shell: true, timeout: 180000 });
+        execSync('npm i -g @dexcodesxs/bon', { stdio: 'inherit', shell: true, timeout: 180000 });
         success('npm install complete. restart terminal + run `bon --version` to verify.');
       } catch (e) { fail(`npm install failed: ${e.message}`); info(`try with sudo or check npm config.`); }
     }
   } else {
     info(`installed via ${c.cyan}${how === 'npm' ? 'npm' : 'unknown method'}${c.reset}`);
-    let cmd = 'npm i -g @dexcodesx/bon';
+    let cmd = 'npm i -g @dexcodesxs/bon';
     info(`running: ${c.dim}${cmd}${c.reset}`);
     try {
       execSync(cmd, { stdio: 'inherit', shell: true, timeout: 180000 });
@@ -376,7 +376,7 @@ function showMigrationNoticeOnce() {
     `  v2.5.8+ uses ${c.cyan}npm${c.reset} for one-cmd cross-platform updates.`,
     ``,
     `  ${c.bold}migrate when you have a sec:${c.reset}`,
-    `    ${c.cyan}npm i -g @dexcodesx/bon${c.reset}`,
+    `    ${c.cyan}npm i -g @dexcodesxs/bon${c.reset}`,
     `    ${c.cyan}bon --version${c.reset}    ${c.dim}# verify, then optionally:${c.reset}`,
     `    ${c.dim}rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js${c.reset}`,
     ``,

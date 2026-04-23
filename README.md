@@ -146,17 +146,17 @@ upload runs in a **detached background process** (survives ctrl+c). 5 minute win
 **v2.5.8+ ships via npm.** one command, every platform:
 
 ```bash
-npm i -g @dexcodesx/bon
+npm i -g @dexcodesxs/bon
 bon --help
 ```
 
-That's it. Works the same on **Windows / macOS / Linux / Termux** because npm handles the bin shim cross-platform. Updates: `npm update -g @dexcodesx/bon` (or `bon update` which auto-runs that for you).
+That's it. Works the same on **Windows / macOS / Linux / Termux** because npm handles the bin shim cross-platform. Updates: `npm update -g @dexcodesxs/bon` (or `bon update` which auto-runs that for you).
 
 ### Termux (Android)
 
 ```bash
 pkg install nodejs -y
-npm i -g @dexcodesx/bon
+npm i -g @dexcodesxs/bon
 ```
 
 ### Migrating from the old curl|bash install (≤ v2.5.7)
@@ -164,7 +164,7 @@ npm i -g @dexcodesx/bon
 If you installed via the old script (`install.sh` / `install.ps1` / `install.bat`), bon will detect this on next run and show a one-time migration notice. To migrate:
 
 ```bash
-npm i -g @dexcodesx/bon                                          # install via npm
+npm i -g @dexcodesxs/bon                                          # install via npm
 rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js   # remove old files
 bon --version                                                    # verify v2.5.8+
 ```

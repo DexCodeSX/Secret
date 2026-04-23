@@ -99,7 +99,7 @@ try {
 } catch (e) {
   console.error('\x1b[31m✗ npm publish failed.\x1b[0m');
   console.error('rolling back tag (commit kept) — run `git tag -d v' + newVer + '` manually if needed.');
-  console.error('also: make sure you ran `npm login` and have permission for @dexcodesx/bon');
+  console.error('also: make sure you ran `npm login` and have permission for @dexcodesxs/bon');
   process.exit(1);
 }
 
@@ -109,6 +109,6 @@ run('git push');
 run('git push --tags');
 
 console.log(`\n\x1b[1m\x1b[32m✓ released v${newVer}\x1b[0m`);
-console.log(`  npm:    https://www.npmjs.com/package/@dexcodesx/bon`);
+console.log(`  npm:    https://www.npmjs.com/package/@dexcodesxs/bon`);
 console.log(`  github: https://github.com/DexCodeSX/Secret/releases/tag/v${newVer}`);
-console.log(`  install: \x1b[36mnpm i -g @dexcodesx/bon\x1b[0m`);
+console.log(`  install: \x1b[36mnpm i -g @dexcodesxs/bon\x1b[0m`);
