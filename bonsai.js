@@ -1977,6 +1977,7 @@ const UI_FILES = [
   'views/landing.ejs', 'views/login.ejs',
   'views/partials/head.ejs', 'views/partials/foot.ejs',
   'views/partials/nav.ejs', 'views/partials/sidebar.ejs',
+  'views/partials/profile-menu.ejs',
   'views/dashboard/index.ejs', 'views/dashboard/keys.ejs',
   'views/dashboard/activity.ejs', 'views/dashboard/models.ejs',
   'views/dashboard/settings.ejs',
