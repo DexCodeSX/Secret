@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="og-image.png" alt="bonsai.js — free frontier coding models" />
+  <a href="og-image-4k.png"><img src="og-image.png" alt="bonsai.js — free Claude Opus 4.7" /></a>
+  <br>
+  <sub><i>preview shown at 2400×1260 (retina) · <a href="og-image-4k.png">4800×2520 4K</a> · <a href="trybons/og-image.svg">SVG source</a></i></sub>
 </p>
 
 <p align="center">
