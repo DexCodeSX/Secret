@@ -1,6 +1,6 @@
 {
   "name": "@dexcodesxs/bon",
-  "version": "2.5.12",
+  "version": "2.5.13",
   "description": "Reverse engineered Bonsai AI CLI — free Claude Opus 4.7 with 1M context, OpenAI-compatible proxy, web dashboard. Cross-platform: termux, linux, macos, windows.",
   "bin": {
     "bon": "./bonsai.js"
