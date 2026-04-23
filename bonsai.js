@@ -321,10 +321,83 @@ function detectPlatform() {
 // detect how bon was installed: 'npm' (>= v2.5.8) or 'script' (legacy curl|bash)
 function detectInstallMethod() {
   let scriptPath = process.argv[1] || '';
+  // npm symlinks $PREFIX/bin/bon → ../lib/node_modules/@dexcodesxs/bon/bonsai.js
+  // — resolve so we see the real location, not the symlink in $PATH
+  try { scriptPath = fs.realpathSync(scriptPath); } catch {}
   let lower = scriptPath.toLowerCase().replace(/\\/g, '/');
-  if (lower.includes('node_modules/@dexcodesxs/bon')) return 'npm';
+  if (lower.includes('node_modules/@dexcodesxs/bon') || lower.includes('node_modules/bon/')) return 'npm';
   if (lower.includes('/.bonsai-oss/bonsai.js') || lower.includes('/.bonsai-oss/bin/')) return 'script';
   return 'unknown';
+}
+
+// find every `bon` in $PATH (cross-platform)
+function findAllBonInPath() {
+  let sep = process.platform === 'win32' ? ';' : ':';
+  let exts = process.platform === 'win32' ? ['.cmd', '.exe', '.ps1', ''] : [''];
+  let found = [];
+  for (let p of (process.env.PATH || '').split(sep)) {
+    if (!p) continue;
+    for (let ext of exts) {
+      let f = path.join(p, 'bon' + ext);
+      try { if (fs.existsSync(f)) found.push(f); } catch {}
+    }
+  }
+  return [...new Set(found)];
+}
+
+// where would `npm i -g` put bon?
+function getNpmGlobalBon() {
+  try {
+    let prefix = execSync('npm prefix -g', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim();
+    if (!prefix) return null;
+    if (process.platform === 'win32') {
+      for (let ext of ['.cmd', '.exe', '.ps1', '']) {
+        let f = path.join(prefix, 'bon' + ext);
+        if (fs.existsSync(f)) return f;
+      }
+    } else {
+      let bin = path.join(prefix, 'bin', 'bon');
+      if (fs.existsSync(bin)) return bin;
+    }
+  } catch {}
+  return null;
+}
+
+// after `npm i -g`, an old wrapper in PATH (e.g. ~/.bonsai-oss/bin/bon, /usr/local/bin/bon
+// from legacy curl|bash) can shadow the new one. find + offer cleanup.
+async function cleanPathConflicts() {
+  if (process.platform === 'win32') return;  // npm overwrites bon.cmd, no shadow issue
+  let all = findAllBonInPath();
+  let npmBon = getNpmGlobalBon();
+  if (all.length <= 1 || !npmBon) return;
+
+  let npmReal; try { npmReal = fs.realpathSync(npmBon); } catch { npmReal = npmBon; }
+  let conflicts = all.filter(f => {
+    if (f === npmBon) return false;
+    try { return fs.realpathSync(f) !== npmReal; } catch { return true; }
+  });
+  if (!conflicts.length) return;
+
+  log('');
+  warn(`PATH has multiple ${c.cyan}bon${c.reset}${c.yellow} — old install(s) shadowing the npm one:${c.reset}`);
+  for (let f of conflicts) log(`     ${c.red}${S.tri}${c.reset} ${c.dim}${f}${c.reset}`);
+  log(`     ${c.green}${S.dot}${c.reset} ${c.cyan}${npmBon}${c.reset} ${c.dim}(npm — what we just updated)${c.reset}`);
+  log('');
+  let yes = await askYN(`${c.bold}remove the old wrapper(s)?${c.reset}`);
+  if (yes) {
+    for (let f of conflicts) {
+      try { fs.unlinkSync(f); success(`removed ${c.dim}${f}${c.reset}`); }
+      catch (e) {
+        try { execSync(`sudo rm -f "${f}"`, { stdio: 'inherit', timeout: 30000 }); success(`removed ${c.dim}${f}${c.reset} ${c.mute}(sudo)${c.reset}`); }
+        catch { fail(`couldn't remove ${f} — try manually: ${c.cyan}sudo rm "${f}"${c.reset}`); }
+      }
+    }
+  }
+  log('');
+  log(`  ${c.gold}${S.bolt}${c.reset}  ${c.bold}your shell cached the old path. clear it:${c.reset}`);
+  log(`     ${c.cyan}hash -r${c.reset}                ${c.dim}# bash${c.reset}`);
+  log(`     ${c.cyan}rehash${c.reset}                 ${c.dim}# zsh${c.reset}`);
+  log(`     ${c.dim}or open a new terminal${c.reset}`);
 }
 
 async function performSelfUpdate() {
@@ -349,7 +422,8 @@ async function performSelfUpdate() {
     if (yes) {
       try {
         execSync('npm i -g @dexcodesxs/bon', { stdio: 'inherit', shell: true, timeout: 180000 });
-        success('npm install complete. restart terminal + run `bon --version` to verify.');
+        success('npm install complete.');
+        await cleanPathConflicts();
       } catch (e) { fail(`npm install failed: ${e.message}`); info(`try with sudo or check npm config.`); }
     }
   } else {
@@ -358,7 +432,9 @@ async function performSelfUpdate() {
     info(`running: ${c.dim}${cmd}${c.reset}`);
     try {
       execSync(cmd, { stdio: 'inherit', shell: true, timeout: 180000 });
-      success(`${c.bold}updated!${c.reset} run \`bon --version\` to verify.`);
+      success(`${c.bold}updated!${c.reset}`);
+      await cleanPathConflicts();
+      log(`  ${c.dim}verify:${c.reset} ${c.cyan}bon --version${c.reset} ${c.mute}(after ${c.cyan}hash -r${c.mute} if you're in the same shell)${c.reset}`);
     } catch (e) { fail(`update failed: ${e.message}`); info(`try: ${c.cyan}${cmd}${c.reset}`); }
   }
 }
