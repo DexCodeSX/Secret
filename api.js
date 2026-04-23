@@ -19,7 +19,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
-const VER = "2.5.10";
+const VER = "2.5.11";
 const ROUTER = process.env.BONSAI_ROUTER_URL || "https://go.trybons.ai";
 const cfgDir = path.join(os.homedir(), '.bonsai-oss');
 const isWin = process.platform === 'win32';
