@@ -143,39 +143,33 @@ upload runs in a **detached background process** (survives ctrl+c). 5 minute win
 
 ## Install
 
-### Windows (PowerShell)
-
-```powershell
-irm https://raw.githubusercontent.com/DexCodeSX/Secret/main/install.ps1 | iex
-```
-
-### Windows (CMD)
-
-```cmd
-curl -sL https://raw.githubusercontent.com/DexCodeSX/Secret/main/install.bat -o install.bat && install.bat
-```
-
-Or download `install.bat` and double-click it.
-
-### Linux / macOS / WSL
+**v2.5.8+ ships via npm.** one command, every platform:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/DexCodeSX/Secret/main/install.sh | bash
+npm i -g @dexcodesx/bon
+bon --help
 ```
+
+That's it. Works the same on **Windows / macOS / Linux / Termux** because npm handles the bin shim cross-platform. Updates: `npm update -g @dexcodesx/bon` (or `bon update` which auto-runs that for you).
 
 ### Termux (Android)
 
 ```bash
-pkg install nodejs curl -y
-curl -sL https://raw.githubusercontent.com/DexCodeSX/Secret/main/install.sh | bash
+pkg install nodejs -y
+npm i -g @dexcodesx/bon
 ```
 
-### Manual
+### Migrating from the old curl|bash install (≤ v2.5.7)
+
+If you installed via the old script (`install.sh` / `install.ps1` / `install.bat`), bon will detect this on next run and show a one-time migration notice. To migrate:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/DexCodeSX/Secret/main/bonsai.js -o bonsai.js
-node bonsai.js --help
+npm i -g @dexcodesx/bon                                          # install via npm
+rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js   # remove old files
+bon --version                                                    # verify v2.5.8+
 ```
+
+Your auth, keys, profiles in `~/.bonsai-oss/` are untouched — only the binaries get replaced.
 
 ## Quick Start
 

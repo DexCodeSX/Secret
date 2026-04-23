@@ -1,0 +1,45 @@
+# dev / scratch
+.git/
+.gitignore
+.docs-cache/
+trybons/.docs-cache/
+trybons/node_modules/
+node_modules/
+release.cjs
+.patch*.cjs
+.gen_*.cjs
+.run_*.cjs
+.test_*.sh
+*.log
+.*-preview.png
+.statsig*
+.litellm*
+.test_set.json
+.model_results.json
+.tested_models.txt
+.new_candidates.json
+.truly_new.json
+.modelsdev*
+.auth_*
+.stat.json
+auth_maps/
+auth_app_src/
+auth_chunks_js/
+sources/
+js/
+maps/
+app/
+
+# old install scripts (deprecated v2.5.8 — npm now)
+install.bat
+install.ps1
+install.sh
+
+# os
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,58 @@
+{
+  "name": "@dexcodesx/bon",
+  "version": "2.5.8",
+  "description": "Reverse engineered Bonsai AI CLI — free Claude Opus 4.7 with 1M context, OpenAI-compatible proxy, web dashboard. Cross-platform: termux, linux, macos, windows.",
+  "bin": { "bon": "./bonsai.js" },
+  "main": "bonsai.js",
+  "type": "module",
+  "files": [
+    "bonsai.js",
+    "api.js",
+    "trybons/",
+    "README.md",
+    "CHANGELOG.md",
+    "MODELS.md",
+    "FINDINGS.md",
+    "TRYBONS_RECON.md",
+    "og-image.png",
+    "og-image-4k.png"
+  ],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "release:patch": "node release.cjs patch",
+    "release:minor": "node release.cjs minor",
+    "release:major": "node release.cjs major",
+    "release": "node release.cjs"
+  },
+  "keywords": [
+    "bonsai",
+    "bonsai-ai",
+    "claude",
+    "claude-code",
+    "claude-opus",
+    "anthropic",
+    "openai-compatible",
+    "openai-proxy",
+    "ai-cli",
+    "free-claude",
+    "free-ai",
+    "reverse-engineered",
+    "cline",
+    "cursor",
+    "aider",
+    "codex"
+  ],
+  "homepage": "https://github.com/DexCodeSX/Secret",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DexCodeSX/Secret.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DexCodeSX/Secret/issues"
+  },
+  "author": "DexCodeSX",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

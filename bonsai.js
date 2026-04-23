@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.7";
+const VERSION = "2.5.8";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -318,29 +318,73 @@ function detectPlatform() {
   return 'linux';
 }
 
+// detect how bon was installed: 'npm' (>= v2.5.8) or 'script' (legacy curl|bash)
+function detectInstallMethod() {
+  let scriptPath = process.argv[1] || '';
+  let lower = scriptPath.toLowerCase().replace(/\\/g, '/');
+  if (lower.includes('node_modules/@dexcodesx/bon')) return 'npm';
+  if (lower.includes('/.bonsai-oss/bonsai.js') || lower.includes('/.bonsai-oss/bin/')) return 'script';
+  return 'unknown';
+}
+
 async function performSelfUpdate() {
-  let platform = detectPlatform();
-  let commands = {
-    termux:     `curl -sL ${REPO_RAW}/install.sh | bash`,
-    linux:      `curl -sL ${REPO_RAW}/install.sh | bash`,
-    macos:      `curl -sL ${REPO_RAW}/install.sh | bash`,
-    cmd:        `curl -sL "${REPO_RAW}/install.bat" -o "%TEMP%\\bonsai_update.bat" && "%TEMP%\\bonsai_update.bat"`,
-    powershell: `powershell -NoProfile -Command "irm ${REPO_RAW}/install.ps1 | iex"`,
-  };
-  let cmd = commands[platform];
+  let how = detectInstallMethod();
   log('');
-  info(`platform: ${c.cyan}${c.bold}${platform}${c.reset}`);
-  info(`running: ${c.dim}${cmd}${c.reset}`);
-  log('');
-  try {
-    execSync(cmd, { stdio: 'inherit', shell: true, timeout: 60000 });
+  if (how === 'script') {
+    box([
+      `${c.gold}${S.bolt}${c.reset} ${c.bold}you're on the OLD install method (curl|bash)${c.reset}`,
+      ``,
+      `  v2.5.8+ ships via ${c.cyan}npm${c.reset}. one cmd, cross-platform updates.`,
+      ``,
+      `  ${c.bold}migrate now:${c.reset}`,
+      `    ${c.cyan}npm i -g @dexcodesx/bon${c.reset}`,
+      ``,
+      `  then optionally remove the old wrapper:`,
+      `    ${c.dim}rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js${c.reset}`,
+      ``,
+      `  ${c.dim}your auth + keys + profiles in ~/.bonsai-oss/ stay intact.${c.reset}`,
+    ], { title: 'NPM MIGRATION', color: c.gold, width: 64 });
     log('');
-    success(`${c.bold}updated!${c.reset} restart your terminal to use the new version.`);
-  } catch (e) {
-    log('');
-    fail(`update failed: ${e.message}`);
-    info(`manual update: ${c.cyan}${cmd}${c.reset}`);
+    let yes = await askYN(`${c.bold}run ${c.cyan}npm i -g @dexcodesx/bon${c.reset}${c.bold} now?${c.reset}`);
+    if (yes) {
+      try {
+        execSync('npm i -g @dexcodesx/bon', { stdio: 'inherit', shell: true, timeout: 180000 });
+        success('npm install complete. restart terminal + run `bon --version` to verify.');
+      } catch (e) { fail(`npm install failed: ${e.message}`); info(`try with sudo or check npm config.`); }
+    }
+  } else {
+    info(`installed via ${c.cyan}${how === 'npm' ? 'npm' : 'unknown method'}${c.reset}`);
+    let cmd = 'npm i -g @dexcodesx/bon';
+    info(`running: ${c.dim}${cmd}${c.reset}`);
+    try {
+      execSync(cmd, { stdio: 'inherit', shell: true, timeout: 180000 });
+      success(`${c.bold}updated!${c.reset} run \`bon --version\` to verify.`);
+    } catch (e) { fail(`update failed: ${e.message}`); info(`try: ${c.cyan}${cmd}${c.reset}`); }
   }
+}
+
+// shown once per machine — see ~/.bonsai-oss/.npm_migration_seen marker
+function showMigrationNoticeOnce() {
+  if (detectInstallMethod() !== 'script') return;
+  let flagFile = path.join(cfg.configDir, '.npm_migration_seen');
+  if (fs.existsSync(flagFile)) return;
+  log('');
+  box([
+    `${c.gold}${S.bolt}${c.reset} ${c.bold}heads up — bon now ships via npm${c.reset}`,
+    ``,
+    `  you installed via the old curl|bash script.`,
+    `  v2.5.8+ uses ${c.cyan}npm${c.reset} for one-cmd cross-platform updates.`,
+    ``,
+    `  ${c.bold}migrate when you have a sec:${c.reset}`,
+    `    ${c.cyan}npm i -g @dexcodesx/bon${c.reset}`,
+    `    ${c.cyan}bon --version${c.reset}    ${c.dim}# verify, then optionally:${c.reset}`,
+    `    ${c.dim}rm -rf ~/.bonsai-oss/bin ~/.bonsai-oss/bonsai.js ~/.bonsai-oss/api.js${c.reset}`,
+    ``,
+    `  ${c.mute}or just run ${c.cyan}bon update${c.mute} and confirm Y.${c.reset}`,
+    `  ${c.mute}your data in ~/.bonsai-oss/ stays. this notice shows once.${c.reset}`,
+  ], { title: 'NPM MIGRATION', color: c.gold, width: 68 });
+  log('');
+  try { fs.writeFileSync(flagFile, new Date().toISOString()); } catch {}
 }
 
 async function checkBonsaiUpdates() {
@@ -2419,6 +2463,9 @@ async function main() {
     warn(`did you mean ${c.cyan}${c.bold}${fixed}${c.reset}?`);
     cmd = fixed;
   }
+
+  // one-time migration notice for users who installed via curl|bash (v2.5.8+ uses npm)
+  showMigrationNoticeOnce();
 
   // background update check — runs while command executes, prints after
   let updateP = null;

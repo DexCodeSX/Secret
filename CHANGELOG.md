@@ -2,6 +2,37 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.8 — 2026-04-23
+
+**bon now ships via npm.** removes the curl|bash install scripts entirely. cleaner distribution, cross-platform updates with one command.
+
+```bash
+npm i -g @dexcodesx/bon       # install
+bon update                    # update (auto runs npm i -g for you)
+```
+
+what changed:
+- new root `package.json` declares `@dexcodesx/bon` w/ `bin: { bon: ./bonsai.js }`
+- new `release.cjs` script — auto-bumps versions everywhere (package.json + bonsai.js VERSION + api.js VER + trybons/VERSION + og-image SVG version pill), regenerates the OG PNGs, commits, tags, npm publishes, pushes to github. one command: `npm run release` (patch) / `release:minor` / `release:major`
+- new `.npmignore` keeps the npm tarball clean (excludes scratch, RE workspaces, install scripts)
+- `bonsai.js` `performSelfUpdate()` rewritten — detects install method (npm vs script) and runs the right thing. legacy script users get a clear migration prompt
+- `bonsai.js` shows a **one-time migration notice** the first time a curl|bash user runs any command on v2.5.8+. shows path to migrate, reassures their data stays. acknowledges via `~/.bonsai-oss/.npm_migration_seen` marker
+- DELETED: `install.bat`, `install.ps1`, `install.sh` — no longer needed
+- README install section completely rewritten — npm only, with migration steps for old users
+
+**bumps:**
+- bonsai.js 2.5.7 → 2.5.8
+- api.js 2.5.7 → 2.5.8
+- trybons/VERSION (no bump, UI didn't change)
+
+**publish flow for maintainers:**
+```bash
+npm login                     # one-time
+npm run release               # patch bump + publish + push
+npm run release:minor         # minor bump (e.g. 2.5.x → 2.6.0)
+npm run release 2.6.0         # explicit version
+```
+
 ## v2.5.7 — 2026-04-23
 
 **honesty fix — model selection is a lie.**
