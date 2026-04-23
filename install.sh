@@ -39,21 +39,39 @@ NPM_VER=$(npm -v 2>/dev/null || echo "unknown")
 echo -e "  ${GREEN}●${RESET}  node $NODE_VER · npm $NPM_VER"
 echo ""
 
+# detect npm global bin dir and check for conflicting old wrapper
+NPM_BIN=$(npm bin -g 2>/dev/null || npm prefix -g 2>/dev/null)/bin
+[ ! -d "$NPM_BIN" ] && NPM_BIN=$(dirname "$(command -v npm)")
+OLD_BON="$NPM_BIN/bon"
+
+# remove squatting old `bon` (from legacy install.sh that wrote a shell wrapper)
+# only if it doesn't look like an npm-managed file
+if [ -f "$OLD_BON" ] && ! head -1 "$OLD_BON" 2>/dev/null | grep -q "node_modules.*@dexcodesxs"; then
+  echo -e "  ${YELLOW}!${RESET}  old bon wrapper at ${DIM}$OLD_BON${RESET} — removing for clean install"
+  rm -f "$OLD_BON" 2>/dev/null || sudo rm -f "$OLD_BON" 2>/dev/null
+  echo ""
+fi
+
 echo -e "  ${DIM}running:${RESET} ${CYAN}npm i -g @dexcodesxs/bon${RESET}"
 echo ""
 
-# try without sudo first; fall back to sudo if EACCES on global install
+# try without sudo first; fall back to sudo if EACCES; --force on EEXIST
 if npm i -g @dexcodesxs/bon 2>&1; then
   :
 else
   EXIT=$?
   if [ $EXIT -ne 0 ]; then
     echo ""
-    echo -e "  ${YELLOW}!${RESET}  npm install failed. trying with sudo..."
-    sudo npm i -g @dexcodesxs/bon || {
-      echo -e "  ${RED}✗${RESET}  install failed. try fixing npm permissions:"
-      echo -e "      ${CYAN}https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally${RESET}"
-      exit 1
+    echo -e "  ${YELLOW}!${RESET}  retrying with --force (overwrite any leftover wrapper)..."
+    npm i -g @dexcodesxs/bon --force 2>&1 || {
+      echo ""
+      echo -e "  ${YELLOW}!${RESET}  retrying with sudo..."
+      sudo npm i -g @dexcodesxs/bon --force || {
+        echo -e "  ${RED}✗${RESET}  install failed. try manually:"
+        echo -e "      ${CYAN}rm \$(which bon) 2>/dev/null${RESET}"
+        echo -e "      ${CYAN}npm i -g @dexcodesxs/bon${RESET}"
+        exit 1
+      }
     }
   fi
 fi
