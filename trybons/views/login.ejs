@@ -1,0 +1,66 @@
+<%- include('partials/head', { title: 'sign in' }) %>
+<%- include('partials/nav') %>
+
+<main class="min-h-[calc(100vh-72px)] flex items-center justify-center px-6 grid-bg">
+  <div class="w-full max-w-md animate-slide-up">
+    <div class="glass grad-border rounded-2xl p-8 shadow-2xl glow">
+
+      <div class="text-center mb-6">
+        <div class="inline-flex w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 items-center justify-center shadow-xl shadow-emerald-500/30 mb-4">
+          <svg class="w-6 h-6 text-ink-950" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4 12l8 10 8-10L12 2z"/></svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-1">sign in to <span class="grad-text">bonsai</span></h1>
+        <p class="text-sm text-zinc-400">authenticate via WorkOS device code · same as <code class="text-emerald-400 font-mono">bon login</code></p>
+      </div>
+
+      <% if (flow && flow.user_code) { %>
+        <div class="space-y-4">
+          <div class="bg-ink-800/50 rounded-xl p-5 border border-emerald-500/20">
+            <div class="text-xs text-zinc-500 uppercase tracking-wider mb-2">your code</div>
+            <div class="font-mono text-3xl font-bold tracking-[0.3em] text-emerald-400 text-center select-all"><%= flow.user_code %></div>
+          </div>
+
+          <a href="<%= flow.verification_uri_complete || flow.verification_uri %>" target="_blank"
+            class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-ink-950 font-semibold rounded-xl transition-all hover:scale-[1.02]">
+            open verification page
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+
+          <div class="text-center text-xs text-zinc-500">
+            opens in browser. enter the code above.<br>
+            this page checks every 3 seconds.
+          </div>
+
+          <div class="border-t border-ink-700/50 pt-4">
+            <div hx-get="/login/poll"
+                 hx-trigger="load delay:3s, every 3s"
+                 hx-swap="innerHTML"
+                 class="text-center text-sm">
+              <div class="flex items-center justify-center gap-2 text-zinc-400">
+                <svg class="animate-spin w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="60" stroke-linecap="round" stroke-opacity="0.3"/><path fill="currentColor" d="M12 2v4a8 8 0 018 8h4a12 12 0 00-12-12z"/></svg>
+                waiting for browser auth...
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="text-center text-red-400 text-sm">
+          could not start device flow.
+          <a href="/login" class="underline hover:text-red-300">retry</a>
+        </div>
+      <% } %>
+
+      <div class="mt-6 pt-6 border-t border-ink-700/50 text-center">
+        <div class="text-xs text-zinc-500 mb-2">no bonsai account?</div>
+        <a href="https://app.trybons.ai" target="_blank" class="text-sm text-emerald-400 hover:underline">create one at app.trybons.ai →</a>
+      </div>
+    </div>
+
+    <div class="text-center mt-6 text-xs text-zinc-500">
+      we share <code class="font-mono text-zinc-400">~/.bonsai-oss/</code> with the <code class="font-mono text-zinc-400">bon</code> CLI ·
+      <a href="https://github.com/DexCodeSX/Secret" target="_blank" class="hover:text-emerald-400">how it works</a>
+    </div>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

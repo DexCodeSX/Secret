@@ -1,0 +1,117 @@
+<%- include('partials/head', { title: 'free frontier coding models' }) %>
+<%- include('partials/nav') %>
+
+<main class="grid-bg">
+  <!-- HERO -->
+  <section class="relative max-w-6xl mx-auto px-6 pt-20 pb-32 text-center overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none"></div>
+
+    <div class="relative animate-fade-in">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-zinc-400 mb-8">
+        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full pulse-dot"></span>
+        199 models confirmed working · MIT licensed · zero telemetry
+      </div>
+
+      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.05]">
+        free <span class="grad-text-multi">frontier</span><br>coding models
+      </h1>
+
+      <p class="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        the open source dashboard for <a href="https://trybons.ai" class="text-emerald-400 hover:underline" target="_blank">bonsai</a>.
+        runs locally, shares session w/ <code class="text-emerald-400 font-mono">bon</code> CLI,
+        zero data leaves your machine.
+      </p>
+
+      <div class="flex items-center justify-center gap-3 flex-wrap">
+        <a href="/login" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-ink-950 font-semibold rounded-lg transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20">
+          sign in →
+        </a>
+        <a href="https://github.com/DexCodeSX/Secret" target="_blank" class="px-6 py-3 glass hover:bg-ink-800 text-white font-medium rounded-lg transition-all">
+          ★ github
+        </a>
+      </div>
+
+      <div class="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-sm">
+        <% const tiles = [
+          ['199', 'models tested', 'emerald'],
+          ['20M', 'tokens/day cap', 'amber'],
+          ['$0', 'cost forever', 'sky'],
+          ['0', 'telemetry sent', 'rose'],
+        ]; %>
+        <% tiles.forEach(([num, lbl, c]) => { %>
+          <div class="glass rounded-xl p-5 text-center hover:bg-ink-800/60 transition-colors">
+            <div class="text-3xl font-extrabold text-<%= c %>-400 mb-1"><%= num %></div>
+            <div class="text-zinc-500 text-xs uppercase tracking-wider"><%= lbl %></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODELS GRID -->
+  <section class="max-w-6xl mx-auto px-6 py-20 border-t border-ink-800/50">
+    <div class="text-center mb-12">
+      <div class="text-xs text-emerald-400 font-mono uppercase tracking-wider mb-2">supported models</div>
+      <h2 class="text-3xl md:text-4xl font-bold mb-3">every frontier model. one endpoint.</h2>
+      <p class="text-zinc-400">tested live against bonsai router. see <a href="https://github.com/DexCodeSX/Secret/blob/main/MODELS.md" class="text-emerald-400 hover:underline">MODELS.md</a> for the full 199.</p>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <% const families = [
+        ['Claude', 'anthropic', '21', 'opus-4-7, sonnet-4-5, haiku-4-5'],
+        ['GPT', 'openai', '75', 'gpt-5, o3, gpt-oss-120b'],
+        ['Gemini', 'google', '29', '2.5-flash, 3.1-flash-live'],
+        ['Llama', 'meta', '13', 'codellama, llama 3.1 405b'],
+        ['DeepSeek', 'deepseek', '11', 'v3.2, reasoner'],
+        ['Qwen', 'alibaba', '9', 'Qwen3.5-397B, Qwen3-Next'],
+        ['GLM', 'z-ai', '4', '4.7, 4.6, 4.5-Air'],
+        ['Mistral', 'mistral', '7', 'Mixtral-8x7B, Codestral'],
+        ['Kimi', 'moonshot', '4', 'K2.5, K2-thinking'],
+        ['MiniMax', 'minimax', '5', 'M2.1, M2.1-lightning'],
+        ['Cohere', 'cohere', '8', 'command-r-plus, command-a'],
+        ['Perplexity', 'perplexity', '11', 'sonar, pplx-online'],
+      ]; %>
+      <% families.forEach(([name, provider, count, sample]) => { %>
+        <div class="glass rounded-xl p-4 hover:bg-ink-800/60 transition-all hover:-translate-y-0.5 group">
+          <div class="flex items-baseline justify-between mb-1">
+            <div class="font-semibold text-white"><%= name %></div>
+            <div class="text-xs text-emerald-400 font-mono"><%= count %></div>
+          </div>
+          <div class="text-xs text-zinc-500 mb-2 uppercase tracking-wider"><%= provider %></div>
+          <div class="text-xs text-zinc-400 truncate group-hover:text-zinc-300"><%= sample %></div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="max-w-6xl mx-auto px-6 py-20 border-t border-ink-800/50">
+    <div class="grid md:grid-cols-3 gap-6">
+      <% const features = [
+        ['🔓', 'zero lock-in', 'MIT license. fork it. self-host it. run it on termux. it just works.'],
+        ['🕵️', 'no telemetry', 'we never send data anywhere except bonsai\'s router (which u opt into).'],
+        ['⚡', 'shares session', 'logs in once via bon CLI or this UI. one config, both tools see it.'],
+        ['🌍', 'cross-platform', 'pure node 18+. termux, linux, mac, windows. zero native deps.'],
+        ['🎨', 'real frontend', 'express + ejs + htmx + tailwind. no build step. fast everywhere.'],
+        ['📊', 'full insight', 'usage, limits, key pool, activity log, model picker. all yours.'],
+      ]; %>
+      <% features.forEach(([icon, title, desc]) => { %>
+        <div class="glass rounded-xl p-6 hover:bg-ink-800/60 transition-colors">
+          <div class="text-2xl mb-3"><%= icon %></div>
+          <div class="font-semibold text-white mb-1.5"><%= title %></div>
+          <div class="text-sm text-zinc-400 leading-relaxed"><%= desc %></div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <footer class="max-w-6xl mx-auto px-6 py-10 border-t border-ink-800/50 flex justify-between items-center text-xs text-zinc-500">
+    <div>built on top of <a href="https://github.com/DexCodeSX/Secret" class="hover:text-emerald-400" target="_blank">DexCodeSX/Secret</a> · MIT</div>
+    <div class="flex gap-4">
+      <a href="https://github.com/DexCodeSX/Secret/blob/main/MODELS.md" class="hover:text-white" target="_blank">models</a>
+      <a href="https://github.com/DexCodeSX/Secret/blob/main/FINDINGS.md" class="hover:text-white" target="_blank">findings</a>
+      <a href="https://github.com/DexCodeSX/Secret/blob/main/CHANGELOG.md" class="hover:text-white" target="_blank">changelog</a>
+    </div>
+  </footer>
+</main>
+
+<%- include('partials/foot') %>

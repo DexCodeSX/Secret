@@ -1,0 +1,79 @@
+<%- include('../partials/head', { title: 'settings' }) %>
+<div class="flex h-screen overflow-hidden">
+  <%- include('../partials/sidebar') %>
+
+  <main class="flex-1 overflow-y-auto scrollbar">
+    <div class="max-w-3xl mx-auto px-8 py-8">
+      <header class="mb-8 animate-fade-in">
+        <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">settings</div>
+        <h1 class="text-3xl font-bold">account & integration</h1>
+      </header>
+
+      <div class="space-y-4">
+
+        <!-- account -->
+        <div class="glass rounded-xl p-6 animate-slide-up">
+          <div class="text-sm font-semibold mb-4">account</div>
+          <% if (user) { %>
+            <div class="space-y-3 text-sm">
+              <div class="flex items-center justify-between"><span class="text-zinc-500">email</span><span class="font-mono"><%= user.email %></span></div>
+              <div class="flex items-center justify-between"><span class="text-zinc-500">name</span><span><%= user.first_name || '' %> <%= user.last_name || '' %></span></div>
+              <div class="flex items-center justify-between"><span class="text-zinc-500">id</span><span class="font-mono text-xs text-zinc-400"><%= user.id %></span></div>
+              <% if (user.created_at) { %>
+              <div class="flex items-center justify-between"><span class="text-zinc-500">joined</span><span class="text-zinc-400"><%= new Date(user.created_at).toLocaleDateString() %></span></div>
+              <% } %>
+            </div>
+          <% } else { %>
+            <div class="text-sm text-zinc-500">not loaded</div>
+          <% } %>
+        </div>
+
+        <!-- stored key -->
+        <div class="glass rounded-xl p-6 animate-slide-up">
+          <div class="text-sm font-semibold mb-4">stored api key (local)</div>
+          <% if (storedKey?.key) { %>
+            <div class="bg-ink-950 rounded-lg p-3 font-mono text-xs text-emerald-300 select-all break-all">
+              <%= storedKey.key.slice(0, 12) %>...<%= storedKey.key.slice(-4) %>
+            </div>
+            <div class="text-xs text-zinc-500 mt-2">name: <code><%= storedKey.name || 'unknown' %></code> · synced w/ <code class="font-mono">~/.bonsai-oss/apikey.json</code></div>
+            <button onclick="if(confirm('reveal full key?')){this.previousElementSibling.previousElementSibling.previousElementSibling.innerText='<%= storedKey.key %>'; this.remove()}"
+              class="mt-3 text-xs text-zinc-400 hover:text-emerald-400 transition-colors">reveal full key</button>
+          <% } else { %>
+            <div class="text-sm text-zinc-500">no local key. <a href="/dashboard/keys" class="text-emerald-400 hover:underline">create one →</a></div>
+          <% } %>
+        </div>
+
+        <!-- integration -->
+        <div class="glass rounded-xl p-6 animate-slide-up">
+          <div class="text-sm font-semibold mb-1">connect ur tools</div>
+          <div class="text-xs text-zinc-500 mb-4">env vars to point any AI coding tool at your local proxy</div>
+          <pre class="bg-ink-950 rounded-lg p-4 text-xs font-mono text-zinc-300 overflow-x-auto scrollbar"><span class="text-zinc-500"># 1. start the proxy (in another terminal)</span>
+bon api
+
+<span class="text-zinc-500"># 2. point ur tool at it</span>
+export ANTHROPIC_BASE_URL=http://localhost:4000
+export ANTHROPIC_AUTH_TOKEN=anything
+
+export OPENAI_BASE_URL=http://localhost:4000/v1
+export OPENAI_API_KEY=anything
+
+<span class="text-zinc-500"># 3. or use shortcuts</span>
+bon cc                  <span class="text-zinc-500"># claude code, direct</span>
+bon codex               <span class="text-zinc-500"># codex w/ openai routing</span>
+bon agents              <span class="text-zinc-500"># detects cline/cursor/aider/etc</span></pre>
+        </div>
+
+        <!-- danger zone -->
+        <div class="glass rounded-xl p-6 border-red-500/20 animate-slide-up">
+          <div class="text-sm font-semibold mb-1 text-red-400">danger zone</div>
+          <div class="text-xs text-zinc-500 mb-4">clears local session. account remains, just signed out everywhere.</div>
+          <form method="post" action="/logout">
+            <button class="px-4 py-2 text-sm text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-colors">sign out (local)</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('../partials/foot') %>

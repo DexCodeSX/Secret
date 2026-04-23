@@ -1,0 +1,17 @@
+{
+  "name": "trybons-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "open-source trybons.ai dashboard clone — runs locally, shares session w/ bon CLI",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ejs": "^3.1.10"
+  }
+}

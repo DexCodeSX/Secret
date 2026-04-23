@@ -1,0 +1,66 @@
+<%- include('../partials/head', { title: 'models' }) %>
+<div class="flex h-screen overflow-hidden">
+  <%- include('../partials/sidebar') %>
+
+  <main class="flex-1 overflow-y-auto scrollbar">
+    <div class="max-w-6xl mx-auto px-8 py-8">
+      <header class="mb-8 animate-fade-in">
+        <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">models</div>
+        <h1 class="text-3xl font-bold mb-2">supported models</h1>
+        <p class="text-zinc-400 text-sm">click any name to copy. paste into <code class="font-mono text-emerald-400">--model</code> flag or json body.</p>
+      </header>
+
+      <% const familyKeys = Object.keys(modelsByFamily); %>
+      <% if (familyKeys.length === 0) { %>
+        <div class="glass rounded-xl p-12 text-center">
+          <div class="text-zinc-500 text-sm">MODELS.md not found in repo root</div>
+          <div class="text-xs text-zinc-600 mt-2">expected at ../MODELS.md</div>
+        </div>
+      <% } else { %>
+        <% const familyColors = {
+          'Claude': 'emerald', 'OpenAI': 'sky', 'Gemini': 'blue', 'Llama': 'orange',
+          'DeepSeek': 'cyan', 'Qwen': 'violet', 'GLM': 'pink', 'Mistral': 'amber',
+          'Kimi': 'rose', 'MiniMax': 'lime', 'Cohere': 'fuchsia', 'Perplexity': 'teal', 'gpt-oss': 'yellow', 'Other': 'zinc',
+        }; %>
+        <div class="space-y-6">
+          <% familyKeys.forEach(fam => {
+            let color = familyColors[fam] || 'zinc';
+            let models = modelsByFamily[fam];
+          %>
+            <div class="glass rounded-xl overflow-hidden animate-slide-up">
+              <div class="flex items-center justify-between px-5 py-3 border-b border-ink-700/50">
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 rounded-full bg-<%= color %>-400"></div>
+                  <span class="font-semibold text-white"><%= fam %></span>
+                  <span class="text-xs text-zinc-500 font-mono"><%= models.length %></span>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1 p-2">
+                <% models.forEach(m => { %>
+                  <button onclick="navigator.clipboard.writeText('<%= m %>'); this.innerText='✓ copied'; setTimeout(()=>this.innerText='<%= m %>', 1200);"
+                    class="text-left px-3 py-2 text-xs font-mono text-zinc-300 hover:bg-<%= color %>-500/10 hover:text-<%= color %>-300 rounded-md transition-colors truncate"
+                    title="<%= m %>"><%= m %></button>
+                <% }) %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <div class="glass rounded-xl p-5 mt-8">
+        <div class="text-xs text-zinc-500 mb-2 uppercase tracking-wider">usage</div>
+        <pre class="bg-ink-950 rounded-lg p-4 text-xs font-mono text-zinc-300 overflow-x-auto scrollbar"><span class="text-zinc-500"># cli</span>
+bon start --model claude-opus-4-7
+
+<span class="text-zinc-500"># api.js</span>
+curl http://localhost:4000/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
+
+<span class="text-zinc-500"># 1M context</span>
+{"model":"claude-opus-4-7[1m]", ...}</pre>
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('../partials/foot') %>

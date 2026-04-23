@@ -1,0 +1,80 @@
+<%- include('../partials/head', { title: 'dashboard' }) %>
+<div class="flex h-screen overflow-hidden">
+  <%- include('../partials/sidebar') %>
+
+  <main class="flex-1 overflow-y-auto scrollbar">
+    <div class="max-w-6xl mx-auto px-8 py-8">
+      <header class="mb-8 animate-fade-in">
+        <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">overview</div>
+        <h1 class="text-3xl font-bold">welcome back, <span class="grad-text"><%= user?.first_name || 'human' %></span></h1>
+      </header>
+
+      <!-- stat tiles -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 animate-slide-up">
+        <% const stats = [
+          ['requests today', todayReqs, 'emerald', 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'],
+          ['input tokens',  todayIn.toLocaleString(),  'amber', 'M19 9l-5 5-4-4-5 5'],
+          ['output tokens', todayOut.toLocaleString(), 'sky',   'M5 15l5-5 4 4 5-5'],
+          ['api keys',      keys.length,               'violet','M21 10h-8.35A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H13l2 2 2-2 2 2 4-4.05L21 10z'],
+        ]; %>
+        <% stats.forEach(([lbl, val, c, icon]) => { %>
+          <div class="glass rounded-xl p-5 hover:bg-ink-800/60 transition-all hover:-translate-y-0.5">
+            <div class="flex items-start justify-between mb-3">
+              <div class="text-xs text-zinc-500 uppercase tracking-wider"><%= lbl %></div>
+              <svg class="w-4 h-4 text-<%= c %>-400/40" fill="currentColor" viewBox="0 0 24 24"><path d="<%= icon %>"/></svg>
+            </div>
+            <div class="text-2xl font-bold text-<%= c %>-400"><%= val %></div>
+          </div>
+        <% }) %>
+      </div>
+
+      <!-- usage bar -->
+      <% const dailyCap = 20000000; const usedPct = Math.min(100, Math.round((todayIn / dailyCap) * 100)); %>
+      <div class="glass rounded-xl p-6 mb-8 animate-slide-up">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="text-sm font-semibold mb-0.5">daily limit</div>
+            <div class="text-xs text-zinc-500"><%= todayIn.toLocaleString() %> / 20,000,000 tokens · resets in <%= Math.floor(resetIn/60) %>h <%= resetIn%60 %>m UTC</div>
+          </div>
+          <div class="text-2xl font-bold text-<%= usedPct < 50 ? 'emerald' : usedPct < 80 ? 'amber' : 'red' %>-400"><%= usedPct %>%</div>
+        </div>
+        <div class="h-2 bg-ink-800 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500" style="width: <%= usedPct %>%"></div>
+        </div>
+      </div>
+
+      <!-- recent activity preview -->
+      <div class="glass rounded-xl overflow-hidden animate-slide-up">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-ink-700/50">
+          <div>
+            <div class="text-sm font-semibold">recent activity</div>
+            <div class="text-xs text-zinc-500">last <%= Math.min(activity.length, 8) %> requests</div>
+          </div>
+          <a href="/dashboard/activity" class="text-xs text-emerald-400 hover:underline">view all →</a>
+        </div>
+        <div class="divide-y divide-ink-800">
+          <% if (activity.length === 0) { %>
+            <div class="px-6 py-12 text-center text-sm text-zinc-500">no activity yet · run <code class="text-emerald-400 font-mono">bon start</code> to make a request</div>
+          <% } else { %>
+            <% activity.slice(0, 8).forEach(a => { %>
+              <div class="px-6 py-3 flex items-center justify-between hover:bg-ink-800/30 transition-colors">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-2 h-2 rounded-full bg-emerald-400/60 flex-shrink-0"></div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-mono text-emerald-300 truncate"><%= a.model_display_name || 'stealth' %></div>
+                    <div class="text-xs text-zinc-500"><%= new Date(a.timestamp).toLocaleString() %></div>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0 ml-4">
+                  <div class="text-sm font-mono text-amber-400"><%= (a.input_tokens || 0).toLocaleString() %> <span class="text-zinc-600">→</span> <%= (a.output_tokens || 0).toLocaleString() %></div>
+                  <div class="text-xs text-zinc-500"><%= a.cache_read_tokens ? `${(a.cache_read_tokens||0).toLocaleString()} cached` : '' %></div>
+                </div>
+              </div>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('../partials/foot') %>

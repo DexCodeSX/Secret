@@ -1,0 +1,82 @@
+<%- include('../partials/head', { title: 'api keys' }) %>
+<div class="flex h-screen overflow-hidden">
+  <%- include('../partials/sidebar') %>
+
+  <main class="flex-1 overflow-y-auto scrollbar">
+    <div class="max-w-5xl mx-auto px-8 py-8">
+      <header class="flex items-end justify-between mb-8 animate-fade-in">
+        <div>
+          <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">api keys</div>
+          <h1 class="text-3xl font-bold"><%= keys.length %> key<%= keys.length === 1 ? '' : 's' %></h1>
+        </div>
+        <button onclick="document.getElementById('create-modal').showModal()"
+          class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-ink-950 font-medium rounded-lg transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          new key
+        </button>
+      </header>
+
+      <% if (newKey) { %>
+        <div class="glass rounded-xl p-5 mb-6 border-emerald-500/40 glow animate-slide-up">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-emerald-300 mb-1">key created. save it now — won't show again.</div>
+              <div class="font-mono text-xs bg-ink-950/80 rounded-lg p-3 mt-2 select-all break-all text-emerald-300"><%= newKey %></div>
+              <button onclick="navigator.clipboard.writeText('<%= newKey %>'); this.innerText='copied!'" class="mt-3 text-xs text-emerald-400 hover:text-emerald-300">copy to clipboard</button>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="glass rounded-xl overflow-hidden animate-slide-up">
+        <% if (keys.length === 0) { %>
+          <div class="px-6 py-16 text-center">
+            <div class="text-zinc-500 text-sm mb-4">no keys yet</div>
+            <button onclick="document.getElementById('create-modal').showModal()" class="text-emerald-400 hover:underline text-sm">create your first key →</button>
+          </div>
+        <% } else { %>
+          <div class="divide-y divide-ink-800">
+            <% keys.forEach(k => { %>
+              <div class="px-6 py-4 flex items-center justify-between hover:bg-ink-800/40 transition-colors group">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-violet-700/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 10h-8.35A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H13l2 2 2-2 2 2 4-4.05L21 10zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"/></svg>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium text-white truncate"><%= k.name || 'unnamed' %></div>
+                    <div class="font-mono text-xs text-zinc-500 truncate"><%= k.mask || k.key_preview || k.id %></div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <form method="post" action="/dashboard/keys/<%= k.id %>/delete" onsubmit="return confirm('revoke key &quot;<%= k.name %>&quot;? cannot be undone.')">
+                    <button class="px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors">revoke</button>
+                  </form>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="text-xs text-zinc-500 mt-4">
+        keys are stored on bonsai's servers and locally synced to <code class="font-mono">~/.bonsai-oss/apikey.json</code> on create.
+      </div>
+    </div>
+  </main>
+</div>
+
+<dialog id="create-modal" class="bg-transparent backdrop:bg-black/70 backdrop:backdrop-blur-sm">
+  <form method="post" action="/dashboard/keys" class="glass rounded-2xl p-6 w-[420px] max-w-[90vw]">
+    <h2 class="text-lg font-bold mb-1">create api key</h2>
+    <p class="text-sm text-zinc-400 mb-5">name it for tracking. shown once on creation.</p>
+    <input name="name" placeholder="my-laptop / cline-mac / production / etc"
+      class="w-full px-4 py-2.5 bg-ink-800 border border-ink-700 rounded-lg text-sm text-white placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition" />
+    <div class="flex justify-end gap-2 mt-5">
+      <button type="button" onclick="document.getElementById('create-modal').close()" class="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors">cancel</button>
+      <button class="px-4 py-2 text-sm bg-emerald-500 hover:bg-emerald-400 text-ink-950 font-medium rounded-lg transition-colors">create</button>
+    </div>
+  </form>
+</dialog>
+
+<%- include('../partials/foot') %>

@@ -2,6 +2,37 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.0 — 2026-04-23
+
+new: **trybons/ web UI** — open source dashboard clone of `app.trybons.ai` runs locally, shares session w/ bon CLI.
+
+stack:
+- express 4 + ejs 3 (server + templates)
+- htmx 2 (interactivity, ~14 KB instead of react's 200+ KB)
+- tailwind via CDN (no compile step)
+- WorkOS device code auth (same as `bon login`, shares `~/.bonsai-oss/`)
+- zero native deps — works on termux, linux, mac, windows
+
+new command:
+- `bon ui`         — auto-installs trybons/ deps + boots on :3000, opens browser
+- `bon ui 8080`    — custom port
+
+pages:
+- `/` landing — hero w/ 12 model family tiles, feature grid, footer
+- `/login` — WorkOS device code w/ htmx polling
+- `/dashboard` — overview, today's stats, usage bar, recent activity
+- `/dashboard/keys` — list 22 keys, create modal, revoke confirm
+- `/dashboard/activity` — paginated request history
+- `/dashboard/models` — all 199 models grouped by family, click-to-copy
+- `/dashboard/settings` — account info, stored key reveal, integration snippets
+
+design:
+- dark theme, emerald-accent gradient, glass morphism, animated banner
+- DOM diff via htmx swap (no SPA, no client state)
+- font: Inter + JetBrains Mono via google fonts
+- ~5 MB total node_modules (just express + ejs)
+- starts in ~1s on termux
+
 ## v2.4.3 — 2026-04-23
 
 found undocumented bonsai router endpoint while probing every standard LLM API path. exposed it.

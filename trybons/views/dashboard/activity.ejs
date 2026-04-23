@@ -1,0 +1,59 @@
+<%- include('../partials/head', { title: 'activity' }) %>
+<div class="flex h-screen overflow-hidden">
+  <%- include('../partials/sidebar') %>
+
+  <main class="flex-1 overflow-y-auto scrollbar">
+    <div class="max-w-6xl mx-auto px-8 py-8">
+      <header class="flex items-end justify-between mb-8 animate-fade-in">
+        <div>
+          <div class="text-xs text-zinc-500 font-mono uppercase tracking-wider mb-1">activity</div>
+          <h1 class="text-3xl font-bold">request history</h1>
+        </div>
+        <div class="text-xs text-zinc-500">page <%= page %> of <%= totalPages %></div>
+      </header>
+
+      <div class="glass rounded-xl overflow-hidden animate-slide-up">
+        <% if (items.length === 0) { %>
+          <div class="px-6 py-16 text-center text-sm text-zinc-500">no activity</div>
+        <% } else { %>
+          <div class="grid grid-cols-12 px-6 py-3 text-xs uppercase tracking-wider text-zinc-500 border-b border-ink-700/50 font-mono">
+            <div class="col-span-4">time</div>
+            <div class="col-span-3">model</div>
+            <div class="col-span-2 text-right">input</div>
+            <div class="col-span-2 text-right">output</div>
+            <div class="col-span-1 text-right">cache</div>
+          </div>
+          <div class="divide-y divide-ink-800">
+            <% items.forEach(a => {
+              let time = new Date(a.timestamp);
+              let inp = a.input_tokens || 0;
+              let out = a.output_tokens || 0;
+              let cache = a.cache_read_tokens || 0;
+            %>
+              <div class="grid grid-cols-12 px-6 py-2.5 text-sm hover:bg-ink-800/40 transition-colors group">
+                <div class="col-span-4 text-zinc-400 font-mono text-xs"><%= time.toLocaleString() %></div>
+                <div class="col-span-3 text-emerald-300 font-mono text-xs truncate"><%= a.model_display_name || 'stealth' %></div>
+                <div class="col-span-2 text-right text-amber-300 font-mono text-xs"><%= inp.toLocaleString() %></div>
+                <div class="col-span-2 text-right text-sky-300 font-mono text-xs"><%= out.toLocaleString() %></div>
+                <div class="col-span-1 text-right text-zinc-500 font-mono text-xs"><%= cache > 0 ? cache.toLocaleString() : '—' %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (totalPages > 1) { %>
+        <div class="flex items-center justify-center gap-2 mt-6">
+          <% if (page > 1) { %>
+            <a href="?page=<%= page-1 %>" class="px-3 py-1.5 text-sm glass hover:bg-ink-800 rounded-md transition-colors">← prev</a>
+          <% } %>
+          <span class="px-3 py-1.5 text-sm text-zinc-500"><%= page %> / <%= totalPages %></span>
+          <% if (page < totalPages) { %>
+            <a href="?page=<%= page+1 %>" class="px-3 py-1.5 text-sm glass hover:bg-ink-800 rounded-md transition-colors">next →</a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+<%- include('../partials/foot') %>

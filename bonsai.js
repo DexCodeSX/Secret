@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.4.3";
+const VERSION = "2.5.0";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -1971,6 +1971,28 @@ async function cmdDash() {
   process.stdout.write('\x1b[?25h'); // show cursor
 }
 
+async function cmdUi() {
+  // launch trybons UI (express + ejs + htmx + tailwind, zero build)
+  let port = parseInt(process.argv.find(a => /^\d{2,5}$/.test(a))) || 3000;
+  let uiPath = path.join(path.dirname(process.argv[1] || ''), 'trybons');
+  if (!fs.existsSync(path.join(uiPath, 'server.js'))) {
+    fail("trybons/ folder not found next to bonsai.js");
+    info(`download: ${c.cyan}curl -sL ${REPO_RAW}/trybons/server.js -o trybons/server.js${c.reset}`);
+    info(`or clone: ${c.cyan}git clone https://github.com/${REPO}${c.reset}`);
+    return;
+  }
+  // ensure deps installed
+  if (!fs.existsSync(path.join(uiPath, 'node_modules'))) {
+    info(`installing trybons UI deps (express + ejs)...`);
+    try { execSync('npm install --silent', { cwd: uiPath, stdio: 'inherit' }); }
+    catch { fail('npm install failed in trybons/'); return; }
+  }
+  info(`launching trybons UI on ${c.cyan}http://localhost:${port}${c.reset}`);
+  let env = { ...process.env, PORT: String(port) };
+  let child = spawn(process.execPath, [path.join(uiPath, 'server.js')], { stdio: 'inherit', env });
+  child.on('exit', code => process.exit(code || 0));
+}
+
 async function cmdCount() {
   // free pre-flight token counter using bonsai router's undocumented endpoint.
   // bon count "your prompt"   OR   echo "your prompt" | bon count
@@ -2154,6 +2176,7 @@ async function main() {
       ['agents', 'Detect & configure Cline/Cursor/Aider/etc.'],
       ['dash', 'Live dashboard for running api.js'],
       ['count', 'Count tokens in a prompt (free, pre-flight)'],
+      ['ui', 'Launch trybons web dashboard (Express+EJS+HTMX, zero build)'],
       ['pool', 'View key pool status'],
       ['rotate', 'Launch with auto key rotation'],
       ['multi', 'Multi-account profiles'],
@@ -2313,6 +2336,7 @@ async function main() {
       case 'agents': case 'tools': await cmdAgents(); break;
       case 'dash': case 'dashboard': await cmdDash(); break;
       case 'count': case 'tokens': await cmdCount(); break;
+      case 'ui': case 'web': case 'dashboard-ui': await cmdUi(); break;
       case 'keys': await cmdKeys(); break;
       case 'test': await cmdTest(); break;
       case 'info': await cmdInfo(); break;

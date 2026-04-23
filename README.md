@@ -23,6 +23,7 @@
   <a href="#commands"><img src="https://img.shields.io/badge/-%E2%97%86%20commands-555?style=for-the-badge" alt="commands" /></a>
   <a href="#plugging-other-tools-in-new-in-v240"><img src="https://img.shields.io/badge/-%E2%97%88%20agents-9333ea?style=for-the-badge" alt="agents" /></a>
   <a href="MODELS.md"><img src="https://img.shields.io/badge/-%E2%9C%A6%20199%20models-0891b2?style=for-the-badge" alt="models" /></a>
+  <a href="trybons/"><img src="https://img.shields.io/badge/-%F0%9F%96%A5%20web%20ui-0ea5e9?style=for-the-badge" alt="ui" /></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/-%E2%98%85%20changelog-f59e0b?style=for-the-badge" alt="changelog" /></a>
   <a href="FINDINGS.md"><img src="https://img.shields.io/badge/-%E2%98%A0%20findings-dc2626?style=for-the-badge" alt="findings" /></a>
 </p>

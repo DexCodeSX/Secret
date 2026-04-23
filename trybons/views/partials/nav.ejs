@@ -1,0 +1,22 @@
+<nav class="border-b border-ink-700/50 bg-ink-950/80 backdrop-blur-xl sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5 group">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+        <svg class="w-4 h-4 text-ink-950" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4 12l8 10 8-10L12 2z"/></svg>
+      </div>
+      <span class="font-bold text-lg tracking-tight">trybons</span>
+      <span class="text-xs text-zinc-500 font-mono px-1.5 py-0.5 rounded bg-zinc-800/50">ui</span>
+    </a>
+    <div class="flex items-center gap-1">
+      <% if (loggedIn) { %>
+        <a href="/dashboard" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors">dashboard</a>
+        <form method="post" action="/logout" class="inline">
+          <button class="px-3 py-1.5 text-sm text-zinc-400 hover:text-red-400 transition-colors">logout</button>
+        </form>
+      <% } else { %>
+        <a href="https://github.com/DexCodeSX/Secret" target="_blank" class="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors">github</a>
+        <a href="/login" class="px-4 py-1.5 text-sm font-medium bg-emerald-500 hover:bg-emerald-400 text-ink-950 rounded-lg transition-colors">sign in</a>
+      <% } %>
+    </div>
+  </div>
+</nav>
