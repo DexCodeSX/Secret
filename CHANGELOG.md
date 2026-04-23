@@ -2,6 +2,30 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.4.2 — 2026-04-23
+
+`bon codex` now actually uses OpenAI. before this, codex sent `gpt-5.2-codex` (its internal name) and api.js silently rewrote it to `claude-opus-4-6` — codex thought it was using GPT but the router executed Claude. since we proved bonsai router accepts real `gpt-5` / `o3` / etc (199 of 213 models work, see MODELS.md), the redirect made no sense.
+
+changes:
+- api.js modelMap rewritten:
+  - `gpt-5.2-codex` → `gpt-5` (real openai)
+  - `gpt-5-codex` → `gpt-5`
+  - `gpt-5.2` → `gpt-5`
+  - `codex-mini` → `gpt-5-mini`
+  - `gpt-4.1` → `gpt-4-turbo`
+  - `gpt-4.1-mini`/`nano` → `gpt-4o-mini`
+  - `o3` / `o3-mini` / `o3-pro` / `o4-mini` — pass through (router takes them directly)
+- bonsai.js launchCodex forces `-c model="gpt-5"` by default unless user passed `--model`
+- live verified: `gpt-5.2-codex` → returns "openai-confirmed", `o3` and `gpt-5` direct also work
+
+usage:
+```
+bon codex                          # defaults to gpt-5
+bon codex --model o3               # use o3 reasoning
+bon codex --model claude-opus-4-7  # if u want claude back, override explicitly
+bon codex exec "fix this bug"      # one-shot
+```
+
 ## v2.4.0 — 2026-04-23
 
 new stuff:

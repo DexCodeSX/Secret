@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.4.0";
+const VERSION = "2.4.2";
 const REPO = "DexCodeSX/Secret";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -456,8 +456,14 @@ function launchClaude(apiKey, extra = []) {
 function launchCodex(apiKey, extra = []) {
   info(`package: ${c.cyan}@bonsai-ai/codex@latest${c.reset}`);
 
-  // codex uses /responses endpoint which the router doesn't support
-  // trick: start api.js in background, point codex at localhost proxy
+  // v2.4.2: codex now actually uses OpenAI models (not silently mapped to claude).
+  // we force model="gpt-5" by default. user can override with --model in extra.
+  // api.js v2.4.2 strips the old gpt-*->claude-* redirect — pass-through to openai.
+  let userPickedModel = extra.some(a => a === '-m' || a === '--model' || a.startsWith('--model='));
+  let defaultModel = 'gpt-5';
+
+  // codex uses /responses endpoint which the router doesn't support.
+  // start api.js in background, point codex at localhost proxy.
   let apiPath = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), 'api.js');
   if (isWin && apiPath.startsWith('/')) apiPath = apiPath.slice(1); // fix /C: -> C:
   let proxyPort = 14088;
@@ -469,21 +475,35 @@ function launchCodex(apiKey, extra = []) {
       detached: true, windowsHide: true,
     });
     proxy.unref();
-    // give proxy time to start
     execSync(isWin ? `ping -n 2 127.0.0.1 >nul` : 'sleep 1');
     process.on('exit', () => { try { process.kill(proxy.pid); } catch {} });
 
     let base = `http://localhost:${proxyPort}`;
     let env = { ...process.env, BONSAI_API_KEY: apiKey, OPENAI_API_KEY: 'bonsai', OPENAI_BASE_URL: `${base}/v1` };
-    let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', '-c', 'model_provider="bonsai"', '-c', 'model_providers.bonsai.name="Bonsai"', '-c', `model_providers.bonsai.base_url="${base}"`, '-c', 'model_providers.bonsai.env_key="OPENAI_API_KEY"', ...extra].join(' ');
+    let baseArgs = [
+      '-c', 'model_provider="bonsai"',
+      '-c', 'model_providers.bonsai.name="Bonsai"',
+      '-c', `model_providers.bonsai.base_url="${base}"`,
+      '-c', 'model_providers.bonsai.env_key="OPENAI_API_KEY"',
+    ];
+    if (!userPickedModel) baseArgs.push('-c', `model="${defaultModel}"`);
+
+    let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', ...baseArgs, ...extra].join(' ');
     info(`router: ${c.cyan}${base}${c.reset} ${c.dim}(via api.js proxy)${c.reset}`);
+    info(`model: ${c.cyan}${userPickedModel ? '(user override)' : defaultModel}${c.reset} ${c.dim}(real OpenAI, not claude-redirected)${c.reset}`);
     let child = spawn(cmd, [], { stdio: 'inherit', env, shell: true, windowsHide: false });
     child.on('exit', code => { try { process.kill(proxy.pid); } catch {} process.exit(code || 0); });
   } else {
-    // fallback: direct to router (will probably 404 on /responses)
     warn("api.js not found — codex may get 404 on /responses");
     let env = { ...process.env, BONSAI_API_KEY: apiKey, OPENAI_API_KEY: apiKey, OPENAI_BASE_URL: `${cfg.router}/v1` };
-    let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', '-c', 'model_provider="bonsai"', '-c', 'model_providers.bonsai.name="Bonsai"', '-c', `model_providers.bonsai.base_url="${cfg.router}"`, '-c', 'model_providers.bonsai.env_key="BONSAI_API_KEY"', ...extra].join(' ');
+    let baseArgs = [
+      '-c', 'model_provider="bonsai"',
+      '-c', 'model_providers.bonsai.name="Bonsai"',
+      '-c', `model_providers.bonsai.base_url="${cfg.router}"`,
+      '-c', 'model_providers.bonsai.env_key="BONSAI_API_KEY"',
+    ];
+    if (!userPickedModel) baseArgs.push('-c', `model="${defaultModel}"`);
+    let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', ...baseArgs, ...extra].join(' ');
     let child = spawn(cmd, [], { stdio: 'inherit', env, shell: true, windowsHide: false });
     child.on('exit', code => process.exit(code || 0));
   }
