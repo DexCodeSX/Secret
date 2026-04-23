@@ -26,9 +26,10 @@
       </a>
     <% }); %>
   </nav>
-  <div class="p-3 border-t border-ink-700/50">
+  <div class="p-3 border-t border-ink-700/50 relative" id="user-menu-wrap">
     <% if (user) { %>
-      <div class="flex items-center gap-2.5 px-2 py-2">
+      <button onclick="toggleProfileMenu()" id="user-trigger"
+        class="w-full flex items-center gap-2.5 px-2 py-2 hover:bg-ink-800/60 rounded-md transition-colors text-left group">
         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-sm font-bold text-ink-950 flex-shrink-0">
           <%= (user.first_name || user.email || '?').charAt(0).toUpperCase() %>
         </div>
@@ -36,10 +37,24 @@
           <div class="text-xs font-medium truncate"><%= user.first_name || 'user' %> <%= user.last_name || '' %></div>
           <div class="text-xs text-zinc-500 truncate"><%= user.email %></div>
         </div>
+        <svg class="w-3.5 h-3.5 text-zinc-500 group-hover:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+      </button>
+      <div id="profile-menu" class="absolute bottom-16 left-3 right-3 hidden z-50"
+        hx-get="/profiles" hx-trigger="revealed" hx-swap="innerHTML">
+        <div class="text-xs text-zinc-500 px-3 py-2">loading...</div>
       </div>
-      <form method="post" action="/logout">
-        <button class="w-full mt-1 px-3 py-1.5 text-xs text-zinc-400 hover:text-red-400 hover:bg-red-500/5 rounded-md transition-colors text-left">sign out</button>
-      </form>
+      <script>
+        function toggleProfileMenu() {
+          const m = document.getElementById('profile-menu');
+          m.classList.toggle('hidden');
+          if (!m.classList.contains('hidden') && window.htmx) htmx.trigger(m, 'revealed');
+        }
+        document.addEventListener('click', e => {
+          if (!document.getElementById('user-menu-wrap')?.contains(e.target)) {
+            document.getElementById('profile-menu')?.classList.add('hidden');
+          }
+        });
+      </script>
     <% } %>
   </div>
 </aside>

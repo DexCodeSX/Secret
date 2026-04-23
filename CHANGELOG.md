@@ -2,6 +2,47 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.3 — 2026-04-23
+
+bug fix + multi-account UI.
+
+**bug fix: docs/models broken when bon ui installed via auto-install**
+
+`bon ui` puts trybons/ next to bonsai.js (e.g. `~/.bonsai-oss/trybons/`). previous code looked for markdown at `../MODELS.md` which doesn't exist there → "MODELS.md not found in repo root". 
+
+new flow:
+1. try local sibling repo first (works for dev from git checkout)
+2. fall back to local cache (`trybons/.docs-cache/`, 1h TTL)
+3. fall back to fetching from `raw.githubusercontent.com/DexCodeSX/Secret/main/`
+4. on network fail with no cache → friendly error w/ refresh link
+
+now `/docs/models`, `/dashboard/models`, all docs pages work from any install location. docs always fresh from github (1h cache).
+
+`?refresh=1` query param forces re-fetch (skips cache).
+
+**multi-account dropdown in sidebar (UI mirror of `bon multi`)**
+
+click the user avatar in sidebar → dropdown opens via htmx:
+- shows current account
+- lists other saved profiles from `~/.bonsai-oss/profiles/*.json`
+- "switch" button (htmx swap, no page reload)
+- "add another account" link (signs out, redirects to /login)
+- "sign out" button
+
+new routes:
+- `GET  /profiles` — htmx dropdown fragment
+- `POST /profiles/:name/switch` — switch active session
+- `POST /profiles/save` — save current as new profile (form on settings)
+- `POST /profiles/:name/delete` — revoke profile
+
+settings page got a new **"multi-account profiles"** section showing all saved profiles inline, switch/delete inline, plus a save-current form.
+
+all session swaps update `~/.bonsai-oss/auth.json` + `apikey.json` so `bon` CLI also follows the switch.
+
+bumps:
+- `bonsai.js` 2.5.2 → 2.5.3
+- `trybons/VERSION` 1.1.0 → 1.2.0
+
 ## v2.5.2 — 2026-04-23
 
 three new things:

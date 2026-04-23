@@ -247,11 +247,10 @@ app.get('/dashboard/activity', requireAuth, async (req, res) => {
 });
 
 app.get('/dashboard/models', requireAuth, async (req, res) => {
-  // load MODELS.md if exists for the full 199 catalog
-  let modelsPath = path.join(__dirname, '..', 'MODELS.md');
+  // fetches MODELS.md from github (or local sibling, or cache)
   let modelsByFamily = {};
   try {
-    let md = fs.readFileSync(modelsPath, 'utf8');
+    let md = await fetchDoc('MODELS.md', req.query.refresh === '1');
     let currentFamily = null;
     for (let line of md.split('\n')) {
       let famMatch = line.match(/^## (.+?) \((\d+)\)$/);
@@ -267,22 +266,110 @@ app.get('/dashboard/models', requireAuth, async (req, res) => {
   res.render('dashboard/models', { modelsByFamily });
 });
 
-app.get('/dashboard/settings', requireAuth, (req, res) => {
-  res.render('dashboard/settings', { storedKey: loadKey() });
+// ─── multi-account profiles (mirrors `bon multi`) ───
+const PROFILES_DIR = path.join(cfg.bonDir, 'profiles');
+function listProfiles() {
+  if (!fs.existsSync(PROFILES_DIR)) return [];
+  try {
+    return fs.readdirSync(PROFILES_DIR).filter(f => f.endsWith('.json')).map(f => {
+      let name = f.replace('.json', '');
+      let data = {};
+      try { data = JSON.parse(fs.readFileSync(path.join(PROFILES_DIR, f), 'utf8')); } catch {}
+      return { name, email: data.email || '?', hasKey: !!data.apiKey };
+    });
+  } catch { return []; }
+}
+
+// htmx-friendly profile dropdown fragment
+app.get('/profiles', requireAuth, async (req, res) => {
+  res.render('partials/profile-menu', {
+    profiles: listProfiles(),
+    user: res.locals.user,
+    layout: false,
+  });
 });
 
-// ─── DOCS — auto-discover repo .md files, render via marked + tailwind typography ───
-const REPO_ROOT = path.join(__dirname, '..');
-function discoverDocs() {
-  // hand-curated list (control sidebar order + display titles)
-  let candidates = [
-    { slug: 'readme', file: 'README.md', title: 'Getting started', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', group: 'guides' },
-    { slug: 'changelog', file: 'CHANGELOG.md', title: 'Changelog', icon: 'M19 14l-7 7m0 0l-7-7m7 7V3', group: 'guides' },
-    { slug: 'models', file: 'MODELS.md', title: 'Models catalog', icon: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z', group: 'reference' },
-    { slug: 'findings', file: 'FINDINGS.md', title: 'Bonsai CLI RE', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z', group: 'recon' },
-    { slug: 'recon', file: 'TRYBONS_RECON.md', title: 'trybons.ai surface map', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7', group: 'recon' },
-  ];
-  return candidates.filter(c => fs.existsSync(path.join(REPO_ROOT, c.file)));
+// switch active profile
+app.post('/profiles/:name/switch', requireAuth, async (req, res) => {
+  let name = req.params.name.replace(/[^a-zA-Z0-9_-]/g, '');
+  let p = path.join(PROFILES_DIR, `${name}.json`);
+  if (!fs.existsSync(p)) { flash(res, `profile "${name}" not found`, 'error'); return res.redirect('/dashboard'); }
+  try {
+    let data = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (data.auth) saveAuth(data.auth);
+    if (data.apiKey) saveKey({ key: data.apiKey, name, created: new Date().toISOString() });
+    flash(res, `switched to "${name}"`, 'info');
+  } catch (e) { flash(res, `switch failed: ${e.message}`, 'error'); }
+  res.redirect('/dashboard');
+});
+
+// save current as new profile
+app.post('/profiles/save', requireAuth, async (req, res) => {
+  let name = (req.body.name || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!name) { flash(res, 'name required (a-z 0-9 _ - only)', 'error'); return res.redirect('/dashboard/settings'); }
+  fs.mkdirSync(PROFILES_DIR, { recursive: true });
+  let auth = loadAuth();
+  let key = loadKey();
+  fs.writeFileSync(path.join(PROFILES_DIR, `${name}.json`), JSON.stringify({
+    email: res.locals.user?.email,
+    auth, apiKey: key?.key,
+  }, null, 2));
+  flash(res, `saved profile "${name}"`, 'info');
+  res.redirect('/dashboard/settings');
+});
+
+// delete profile
+app.post('/profiles/:name/delete', requireAuth, async (req, res) => {
+  let name = req.params.name.replace(/[^a-zA-Z0-9_-]/g, '');
+  try {
+    fs.unlinkSync(path.join(PROFILES_DIR, `${name}.json`));
+    flash(res, `deleted profile "${name}"`, 'info');
+  } catch (e) { flash(res, `delete failed: ${e.message}`, 'error'); }
+  res.redirect('/dashboard/settings');
+});
+
+app.get('/dashboard/settings', requireAuth, (req, res) => {
+  res.render('dashboard/settings', { storedKey: loadKey(), profiles: listProfiles() });
+});
+
+// ─── DOCS — auto-fetch from GitHub raw, cache locally, render via marked ───
+// works from any install location (next-to-bon, ~/.bonsai-oss/trybons, etc)
+// because we don't depend on a sibling git repo. github is source of truth.
+const REPO_RAW = 'https://raw.githubusercontent.com/DexCodeSX/Secret/main';
+const DOCS_CACHE = path.join(__dirname, '.docs-cache');
+const DOCS_TTL = 3600 * 1000; // 1h
+const ALL_DOCS = [
+  { slug: 'readme',    file: 'README.md',         title: 'Getting started',         icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', group: 'guides' },
+  { slug: 'changelog', file: 'CHANGELOG.md',      title: 'Changelog',               icon: 'M19 14l-7 7m0 0l-7-7m7 7V3', group: 'guides' },
+  { slug: 'models',    file: 'MODELS.md',         title: 'Models catalog',          icon: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z', group: 'reference' },
+  { slug: 'findings',  file: 'FINDINGS.md',       title: 'Bonsai CLI RE',           icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z', group: 'recon' },
+  { slug: 'recon',     file: 'TRYBONS_RECON.md',  title: 'trybons.ai surface map',  icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7', group: 'recon' },
+];
+function discoverDocs() { return ALL_DOCS; }
+
+async function fetchDoc(file, force = false) {
+  fs.mkdirSync(DOCS_CACHE, { recursive: true });
+  let cached = path.join(DOCS_CACHE, file);
+  // try local sibling repo first (if dev-running from git checkout)
+  let localSibling = path.join(__dirname, '..', file);
+  if (!force && fs.existsSync(localSibling)) return fs.readFileSync(localSibling, 'utf8');
+  // try cache
+  if (!force && fs.existsSync(cached)) {
+    let age = Date.now() - fs.statSync(cached).mtimeMs;
+    if (age < DOCS_TTL) return fs.readFileSync(cached, 'utf8');
+  }
+  // fetch from github
+  try {
+    let r = await req(`${REPO_RAW}/${file}`, { timeout: 8000 });
+    if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+    let body = typeof r.body === 'string' ? r.body : JSON.stringify(r.body);
+    fs.writeFileSync(cached, body);
+    return body;
+  } catch (e) {
+    // network fail → return stale cache if any
+    if (fs.existsSync(cached)) return fs.readFileSync(cached, 'utf8');
+    throw e;
+  }
 }
 
 // configure marked: GFM tables, headerIds, strip leading anchor links
@@ -293,29 +380,28 @@ app.get('/docs', (req, res) => {
   res.render('docs/index', { docs });
 });
 
-app.get('/docs/:slug', (req, res) => {
+app.get('/docs/:slug', async (req, res) => {
   let docs = discoverDocs();
   let doc = docs.find(d => d.slug === req.params.slug);
   if (!doc) return res.status(404).render('docs/index', { docs, notFound: req.params.slug });
   let raw = '';
-  try { raw = fs.readFileSync(path.join(REPO_ROOT, doc.file), 'utf8'); } catch { raw = '_could not read file_'; }
+  let stale = false;
+  try { raw = await fetchDoc(doc.file, req.query.refresh === '1'); }
+  catch (e) { raw = `# Could not load ${doc.file}\n\n_${e.message}_\n\nTry [refresh](?refresh=1) or check your network.`; stale = true; }
   // strip the html badge nav at top of README (keep doc focused)
   raw = raw.replace(/<p align="center">[\s\S]*?<\/p>\s*/g, '');
-  // extract h1 for page title fallback
   let html = marked.parse(raw);
-  // build TOC from h2/h3
   let toc = [];
   let tocRegex = /<h([23])>([^<]+)<\/h[23]>/g; let m;
   while ((m = tocRegex.exec(html))) {
     let id = m[2].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     toc.push({ level: parseInt(m[1]), text: m[2], id });
   }
-  // inject ids into h2/h3
   html = html.replace(/<h([23])>([^<]+)<\/h[23]>/g, (full, lvl, txt) => {
     let id = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     return `<h${lvl} id="${id}"><a href="#${id}" class="anchor">${txt}</a></h${lvl}>`;
   });
-  res.render('docs/page', { docs, doc, html, toc });
+  res.render('docs/page', { docs, doc, html, toc, stale });
 });
 
 // ─── start ───

@@ -19,6 +19,7 @@ desktop.ini
 
 # node
 node_modules/
+trybons/.docs-cache/
 # keep trybons/package-lock.json for reproducibility, ignore root-level locks
 /package-lock.json
 
