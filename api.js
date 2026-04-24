@@ -250,13 +250,16 @@ async function streamCollect(url, headers, body) {
 // -- format conversion --
 
 // model alias mapping — codex sends gpt models, we remap to claude
-// v2.5.7 HONEST UPDATE: bonsai router IGNORES the model field entirely.
-// statsig confirms: routing_mode="fixed", fixed_routing_model=claude-opus-4.7.
-// every request — gpt-5, o3, gemini, whatever — gets executed as Claude.
-// the model name is only validated for compat (so codex/cline don't crash
-// on "model not found"), but the actual inference is always Claude.
-// modelMap below just keeps codex-internal aliases working as model strings;
-// none of this changes which model actually runs.
+// v2.5.14 HONEST UPDATE (re-verified live): bonsai router IGNORES the model field.
+// live statsig dump shows the actual stealth pool A/B's across:
+//   anthropic: opus-4.5, opus-4.6 (reasoning hi/lo), sonnet-4.5, sonnet-4.6
+//   z-ai: glm-4.6, glm-4.7  (rotated across openrouter providers)
+//   minimax: m2.1
+// the response display_name field is literally "stealth" — UI hides which one.
+// (previous v2.5.7 claim of "fixed to opus-4.7" was wrong — no opus-4.7 in the
+//  actual config. corrected after a discord user called it out.)
+// modelMap below keeps codex-internal aliases compat so clients don't crash on
+// "model not found"; doesn't influence which model actually runs.
 const modelMap = {
   'gpt-5.2-codex': 'gpt-5',
   'gpt-5-codex':   'gpt-5',

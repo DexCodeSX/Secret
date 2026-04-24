@@ -1,17 +1,18 @@
 # models — what bonsai router actually accepts
 
-> **⚠️ HONEST UPDATE 2026-04-23 (v2.5.7):** Statsig dump confirms:
-> ```
-> routing_mode:        "fixed"
-> fixed_routing_model: anthropic/claude-opus-4.7 (reasoning high)
-> ```
-> **the router IGNORES the `model` field entirely.** every request — `gpt-5`, `gemini`, `deepseek`, etc. — gets executed by **Claude Opus 4.7**. ask any "gpt-5" session "what model are you?" and it answers Claude. all 199 names below are accepted for client compatibility (so cline/cursor/codex don't crash on unknown model), but the actual inference is always Claude.
+> **⚠️ HONEST UPDATE 2026-04-24 (v2.5.14):** the previous v2.5.7 claim of "fixed_routing_model: opus-4.7" was wrong. live statsig dump shows the actual stealth pool A/B's across:
 >
-> still useful: bonsai = free Claude Opus 4.7 with 1M context for everyone, even if your tool is hardcoded to ask for gpt-5. just don't expect gpt-5's actual behavior.
+> - **anthropic**: opus-4.5, opus-4.6 (with reasoning high/low), sonnet-4.5, sonnet-4.6
+> - **z-ai**: glm-4.6, glm-4.7 (rotated across openrouter providers)
+> - **minimax**: m2.1
+>
+> **no `claude-opus-4.7` in the actual pool right now.** the response field is literally `display_name: "stealth"` — UI is designed to hide which model you got. all 199 model names below are accepted for client compat (so cline/cursor/codex don't crash on unknown model), but every request maps into the stealth pool.
+>
+> still useful: bonsai = free frontier-class model access with 1M context. just don't expect a *specific* model — you get whatever the A/B test serves you that request. verify with `bon statsig`.
 
 tested 213 model names from litellm catalog against `go.trybons.ai` via api.js (v2.4.0). **199 accepted by router** (no 4xx), 14 timed out.
 
-all responses come back as `model: "stealth"` — confirmed via statsig that the real backend is fixed to Claude regardless.
+all responses come back as `model: "stealth"` — confirmed via statsig that the actual backend is the stealth pool above (not a single model).
 
 date: 2026-04-23
 
@@ -306,7 +307,7 @@ all of these timed out at 25s. could be slow-responding models (Perplexity onlin
 
 - bonsai markets itself as "free claude" but the router accepts ~everything OpenRouter does
 - you can use **GPT-5, Gemini 2.5/3.1, DeepSeek, Qwen3.5-397B, GLM-4.7, Kimi K2.5, Mixtral, CodeLlama, gpt-oss-120b, Cohere command, MiniMax m2.1** — all free thru `bon api`
-- 1M context modifier: append `[1m]` to opus models (`claude-opus-4-7[1m]`)
+- 1M context modifier: append `[1m]` to opus models (`claude-opus-4-6[1m]`)
 - everything counts against the same 20M tokens/day cap regardless of model
 - router returns `model: "stealth"` always — no way to verify which provider actually ran ur request
 

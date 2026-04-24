@@ -199,13 +199,19 @@ node api.js -p 8080    # custom port
 
 ### Supported Models
 
-> **⚠️ honest update (v2.5.7):** Statsig dump confirms `routing_mode: "fixed"` + `fixed_routing_model: anthropic/claude-opus-4.7` (reasoning high). **The router ignores the `model` field.** Every request — `gpt-5`, `gemini`, `deepseek`, anything — actually executes as **Claude Opus 4.7**. ask any "gpt-5" session "what model are u?" and it says Claude. so we get free claude opus 4.7 with 1M context but NOT actually 199 different models.
+> **⚠️ honest update (v2.5.14):** Re-verified the live Statsig dump after a discord user correctly pointed out the previous claim was wrong. **The router does NOT route everything to a single fixed model.** Live config shows the actual stealth pool A/B's across multiple providers per user:
+>
+> - **Anthropic**: `claude-opus-4.5`, `claude-opus-4.6` (with reasoning, high & low effort), `claude-sonnet-4.5`, `claude-sonnet-4.6`
+> - **Z-AI**: `glm-4.6`, `glm-4.7` (rotated across openrouter providers: gmicloud, mancer, siliconflow, deepinfra, atlas-cloud, parasail, novita, z-ai)
+> - **MiniMax**: `m2.1` (rotated across deepinfra, minimax, fireworks, atlas-cloud, novita, gmicloud)
+>
+> The response field is literally `display_name: "stealth"` — the UI is **designed to hide which model you actually got**. So you DON'T know which model serves any given request, and it can change between requests. Verify with `bon statsig`. (Previous v2.5.7 claim of "fixed to opus-4.7" was wrong — no opus-4.7 in the actual pool. Corrected after a discord user called it out.)
 
-**199 of 213 tested model names** are accepted by the router (so cline / cursor / codex don't crash on "model not found"), but all execute Claude underneath. See [MODELS.md](MODELS.md) for the catalog. Names worth knowing:
+**199 of 213 tested model names** are accepted by the router (so cline / cursor / codex don't crash on "model not found"), but every request maps into the stealth pool above. See [MODELS.md](MODELS.md) for the catalog. Names worth knowing:
 
 | Family | Count | Examples |
 |---|---|---|
-| **Claude** | 21 | `claude-opus-4-7`, `claude-opus-4-6` (default, 1M ctx), `claude-opus-4-6-fast`, `claude-haiku-4-5` |
+| **Claude** | 21 | `claude-opus-4-6` (default, 1M ctx), `claude-opus-4-5`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | **OpenAI** | 75 | `gpt-5`, `o3`, `o3-mini`, `gpt-oss-120b`, `gpt-realtime-mini` |
 | **Gemini** | 29 | `gemini-2.5-flash`, `gemini-3.1-flash-live-preview`, `gemini-pro-latest` |
 | **DeepSeek** | 11 | `deepseek-v3-2-251201`, `deepseek-reasoner` |
@@ -216,7 +222,7 @@ node api.js -p 8080    # custom port
 | **Kimi** | 4 | `kimi-k2-thinking-251104`, `Kimi-K2.5` |
 | **Llama / Cohere / Perplexity / others** | 34 | Llama 3.1 405B, command-r-plus, sonar |
 
-1M context modifier: append `[1m]` to opus models (`claude-opus-4-7[1m]`).
+1M context modifier: append `[1m]` to opus models (`claude-opus-4-6[1m]`).
 
 ```bash
 bon models             # CLI: highlights w/ links
@@ -431,7 +437,7 @@ All `@bonsai-ai/codex` (= `@openai/codex`) flags work. Use `bon codex <subcomman
 bon codex                                  # interactive TUI (defaults to gpt-5)
 bon codex exec "refactor api.js"           # one-shot, non-interactive
 bon codex --model gpt-5.2-codex            # codex's internal name → maps to gpt-5
-bon codex --model claude-opus-4-7          # use claude via codex (override)
+bon codex --model claude-opus-4-6          # use claude via codex (override)
 bon codex --full-auto                      # sandboxed auto-execution
 bon codex -s workspace-write               # sandbox policy
 bon codex resume --last                    # resume most recent session
