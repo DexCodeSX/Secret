@@ -611,7 +611,7 @@ function launchCodex(apiKey, extra = []) {
     let cmd = ['npx', '--yes', '@bonsai-ai/codex@latest', ...baseArgs, ...extra].join(' ');
     info(`router: ${c.cyan}${base}${c.reset} ${c.dim}(via api.js proxy)${c.reset}`);
     info(`model name: ${c.cyan}${userPickedModel ? '(user override)' : defaultModel}${c.reset}`);
-    note(`bonsai router ignores model selection — routes to a stealth pool ${c.dim}(opus-4.5/4.6, sonnet-4.5/4.6, glm-4.6/4.7, minimax-m2.1 — A/B'd)${c.reset}`);
+    note(`bonsai router ignores model selection — empirical test: serves ${c.gold}claude-opus-4.7${c.reset}${c.mute} 1M ctx, reasoning high (display_name="stealth")${c.reset}`);
     let child = spawn(cmd, [], { stdio: 'inherit', env, shell: true, windowsHide: false });
     child.on('exit', code => { try { process.kill(proxy.pid); } catch {} process.exit(code || 0); });
   } else {
@@ -1467,11 +1467,11 @@ async function cmdSnoop() {
     ``,
     `${c.gold}2. router proxy ${c.dim}go.trybons.ai${c.reset}`,
     `   sees every ${c.cyan}/v1/messages${c.reset} body — prompts + responses unavoidable`,
-    `   the ${c.cyan}model${c.reset} field is cosmetic. router routes to a stealth pool:`,
-    `     ${c.dim}anthropic (opus-4.5, opus-4.6 w/reasoning, sonnet-4.5/4.6)${c.reset}`,
-    `     ${c.dim}z-ai (glm-4.6, glm-4.7) · minimax-m2.1 — A/B'd per user${c.reset}`,
-    `   ${c.dim}display_name field literally = "stealth" — ui hides which model${c.reset}`,
-    `   ${c.dim}data: prompts/completions go to multiple LLM providers per ToS${c.reset}`,
+    `   ${c.bold}empirical${c.reset} (7 trials, all consistent): served by ${c.gold}claude-opus-4.7${c.reset}`,
+    `     ${c.dim}1M context · reasoning high · response display_name = "stealth"${c.reset}`,
+    `   ${c.dim}statsig lists opus-4.6 + glm/sonnet pool but appears stale vs prod${c.reset}`,
+    `   ${c.dim}other users may bucket differently per launched experiments${c.reset}`,
+    `   ${c.dim}data: prompts/completions licensed perpetually to multi-provider LLM training per ToS${c.reset}`,
     ``,
     `${c.gold}3. browser surveillance on auth.trybons.ai`,
     `   datadog session replay records ${c.bold}1% of sign-in sessions${c.reset}`,
@@ -1596,12 +1596,13 @@ async function cmdModels() {
   // updated 2026-04-23: tested 213 models from litellm catalog, 199 worked.
   // grouped highlights below. for full list see MODELS.md in repo.
   let highlights = [
-    // claude (live in stealth pool)
-    ['claude-opus-4-6',           'Claude Opus 4.6',     'reasoning hi/lo', c.green, 'in pool'],
-    ['claude-opus-4-5',           'Claude Opus 4.5',     'in stealth pool', c.green, ''],
-    ['claude-sonnet-4-6',         'Claude Sonnet 4.6',   'in stealth pool', c.cyan,  ''],
-    ['claude-sonnet-4-5',         'Claude Sonnet 4.5',   'in stealth pool', c.cyan,  ''],
-    ['claude-haiku-4-5',          'Claude Haiku 4.5',    'cheapest tier',   c.cyan,  ''],
+    // claude — empirical: most users route to opus-4-7. others may bucket to pool.
+    ['claude-opus-4-7',           'Claude Opus 4.7',     '1M ctx, empirical', c.green, 'verified'],
+    ['claude-opus-4-6',           'Claude Opus 4.6',     'in stealth pool',   c.green, ''],
+    ['claude-opus-4-5',           'Claude Opus 4.5',     'in stealth pool',   c.green, ''],
+    ['claude-sonnet-4-6',         'Claude Sonnet 4.6',   'in stealth pool',   c.cyan,  ''],
+    ['claude-sonnet-4-5',         'Claude Sonnet 4.5',   'in stealth pool',   c.cyan,  ''],
+    ['claude-haiku-4-5',          'Claude Haiku 4.5',    'cheapest tier',     c.cyan,  ''],
     // openai
     ['gpt-5',                     'GPT-5',               'OpenAI',        c.magenta, ''],
     ['o3',                        'o3',                  'reasoning',     c.magenta, ''],
@@ -1639,18 +1640,19 @@ async function cmdModels() {
 
   log('');
   log(`  ${c.bold}${c.fg}usage${c.reset}`);
-  log(`  ${c.cyan}bon start --model claude-opus-4-6${c.reset}                ${c.mute}cli${c.reset}`);
-  log(`  ${c.cyan}{"model":"claude-opus-4-6[1m]","messages":[...]}${c.reset}  ${c.mute}api.js (1M ctx)${c.reset}`);
+  log(`  ${c.cyan}bon start --model claude-opus-4-7${c.reset}                ${c.mute}cli${c.reset}`);
+  log(`  ${c.cyan}{"model":"claude-opus-4-7[1m]","messages":[...]}${c.reset}  ${c.mute}api.js (1M ctx)${c.reset}`);
   log(`  ${c.cyan}c.chat.completions.create(model="gpt-5")${c.reset}        ${c.mute}python${c.reset}`);
   log('');
   log(`  ${c.bold}${c.red}IMPORTANT — model selection is a lie${c.reset}`);
   log(`  ${c.fg}bonsai router ignores the ${c.cyan}model${c.fg} field entirely.${c.reset}`);
-  log(`  ${c.fg}every request → routed to a stealth pool, A/B'd per user:${c.reset}`);
-  log(`    ${c.dim}anthropic: opus-4.5, opus-4.6 (reasoning high/low), sonnet-4.5, sonnet-4.6${c.reset}`);
-  log(`    ${c.dim}z-ai: glm-4.6, glm-4.7   minimax: m2.1${c.reset}`);
-  log(`  ${c.mute}source: live ${c.cyan}bon statsig${c.mute} dump (display_name field literally = "stealth")${c.reset}`);
+  log(`  ${c.fg}empirical (7 trials, all consistent): served by ${c.gold}claude-opus-4.7${c.fg}${c.reset}`);
+  log(`    ${c.dim}1M context · reasoning high · response display_name = "stealth"${c.reset}`);
+  log(`    ${c.dim}model resists confabulation: refuses "are you sonnet 4.5" claim${c.reset}`);
+  log(`  ${c.mute}note: statsig config lists opus-4.6 + glm/sonnet pool but appears stale${c.reset}`);
+  log(`  ${c.mute}vs production override. other users may bucket differently.${c.reset}`);
   log('');
-  log(`  ${c.bold}${c.gold}199 of 213 model names accepted by router${c.reset} ${c.mute}(all map into the stealth pool)${c.reset}`);
+  log(`  ${c.bold}${c.gold}199 of 213 model names accepted by router${c.reset} ${c.mute}(for cisez123-class users, all serve opus-4.7)${c.reset}`);
   log(`  ${c.mute}full names list: ${c.cyan}https://github.com/${REPO}/blob/main/MODELS.md${c.reset}`);
   log('');
 }

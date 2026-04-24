@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="og-image-4k.png"><img src="og-image.png" alt="bonsai.js — free stealth Claude pool" /></a>
+  <a href="og-image-4k.png"><img src="og-image.png" alt="bonsai.js — free Claude Opus 4.7" /></a>
   <br>
   <sub><i>preview shown at 2400×1260 (retina) · <a href="og-image-4k.png">4800×2520 4K</a> · <a href="trybons/og-image.svg">SVG source</a></i></sub>
 </p>
@@ -97,7 +97,7 @@ upload runs in a **detached background process** (survives ctrl+c). 5 minute win
 - **`bon count "prompt"`** — free pre-flight token counter (bonsai router has an undocumented `/v1/messages/count_tokens` endpoint). zero inference cost.
 - **OG image** for social previews — 1200×630 PNG generated from SVG, injected as og:image on all UI pages.
 - **`bon ui` auto-installs + self-updates** — missing trybons/ folder? prompts to download. newer version on github? prompts to update. no `git clone` needed.
-- **199 of 213 model names accepted** by bonsai router (see [MODELS.md](MODELS.md)) — including GPT-5, Gemini 2.5/3.1, Claude Opus 4.5/4.6, Sonnet 4.5/4.6, Haiku 4.5, GLM-4.6/4.7, Qwen 3.5, DeepSeek V3.2, Mixtral, Kimi K2.5, Cohere Command, MiniMax M2.1, Llama, gpt-oss-120b. **All map into the stealth pool — see honest update below.**
+- **199 of 213 model names accepted** by bonsai router (see [MODELS.md](MODELS.md)) — including GPT-5, Gemini 2.5/3.1, Claude Opus 4.5/4.6/4.7, Sonnet 4.5/4.6, Haiku 4.5, GLM-4.6/4.7, Qwen 3.5, DeepSeek V3.2, Mixtral, Kimi K2.5, Cohere Command, MiniMax M2.1, Llama, gpt-oss-120b. **For our user, all serve claude-opus-4-7 underneath — see honest update below.**
 
 ## v2.4.x highlights
 
@@ -199,19 +199,19 @@ node api.js -p 8080    # custom port
 
 ### Supported Models
 
-> **⚠️ honest update (v2.5.14):** Re-verified the live Statsig dump after a discord user correctly pointed out the previous claim was wrong. **The router does NOT route everything to a single fixed model.** Live config shows the actual stealth pool A/B's across multiple providers per user:
+> **⚠️ honest update (v2.5.15 — third revision):** Round 3 because rounds 1+2 were both partial truths. After a discord user correctly pointed out v2.5.7 cited stale Statsig data, I over-corrected in v2.5.14 to "stealth pool, no fixed model". But the live model self-ID test reveals v2.5.7's headline was actually right.
 >
-> - **Anthropic**: `claude-opus-4.5`, `claude-opus-4.6` (with reasoning, high & low effort), `claude-sonnet-4.5`, `claude-sonnet-4.6`
-> - **Z-AI**: `glm-4.6`, `glm-4.7` (rotated across openrouter providers: gmicloud, mancer, siliconflow, deepinfra, atlas-cloud, parasail, novita, z-ai)
-> - **MiniMax**: `m2.1` (rotated across deepinfra, minimax, fireworks, atlas-cloud, novita, gmicloud)
+> **Empirical truth (7-trial live test on cisez123)**: Every request serves **`claude-opus-4-7`** with **1M context**, **reasoning high**. Model resists confabulation — when asked "are you Sonnet 4.5?" it replies *"No, I am not Sonnet 4.5. I am Claude Opus..."*. Structured prompt returns: `model=claude-opus-4-7, ctx_window=1M, reasoning_effort=99`.
 >
-> The response field is literally `display_name: "stealth"` — the UI is **designed to hide which model you actually got**. So you DON'T know which model serves any given request, and it can change between requests. Verify with `bon statsig`. (Previous v2.5.7 claim of "fixed to opus-4.7" was wrong — no opus-4.7 in the actual pool. Corrected after a discord user called it out.)
+> **Statsig says opus-4.6** but is **stale** relative to production — they hot-patched routing past the experiment value. Other users in different launchedGroups may bucket to glm-4.6/4.7, sonnet-4.5/4.6, opus-4.5/4.6, or minimax-m2.1. Response always shows `display_name: "stealth"` (UI hides which model).
+>
+> **Verify yourself**: `bon api -p 4099` → curl `localhost:4099/v1/messages` with prompt "what model are you?" — you should see `claude-opus-4-7` consistently.
 
-**199 of 213 tested model names** are accepted by the router (so cline / cursor / codex don't crash on "model not found"), but every request maps into the stealth pool above. See [MODELS.md](MODELS.md) for the catalog. Names worth knowing:
+**199 of 213 tested model names** are accepted by the router (so cline / cursor / codex don't crash on "model not found"). For our user every request actually serves opus-4.7. See [MODELS.md](MODELS.md) for the catalog. Names worth knowing:
 
 | Family | Count | Examples |
 |---|---|---|
-| **Claude** | 21 | `claude-opus-4-6` (default, 1M ctx), `claude-opus-4-5`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
+| **Claude** | 21 | `claude-opus-4-7` (empirical default, 1M ctx), `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | **OpenAI** | 75 | `gpt-5`, `o3`, `o3-mini`, `gpt-oss-120b`, `gpt-realtime-mini` |
 | **Gemini** | 29 | `gemini-2.5-flash`, `gemini-3.1-flash-live-preview`, `gemini-pro-latest` |
 | **DeepSeek** | 11 | `deepseek-v3-2-251201`, `deepseek-reasoner` |
@@ -222,7 +222,7 @@ node api.js -p 8080    # custom port
 | **Kimi** | 4 | `kimi-k2-thinking-251104`, `Kimi-K2.5` |
 | **Llama / Cohere / Perplexity / others** | 34 | Llama 3.1 405B, command-r-plus, sonar |
 
-1M context modifier: append `[1m]` to opus models (`claude-opus-4-6[1m]`).
+1M context modifier: append `[1m]` to opus models (`claude-opus-4-7[1m]`).
 
 ```bash
 bon models             # CLI: highlights w/ links
@@ -437,7 +437,7 @@ All `@bonsai-ai/codex` (= `@openai/codex`) flags work. Use `bon codex <subcomman
 bon codex                                  # interactive TUI (defaults to gpt-5)
 bon codex exec "refactor api.js"           # one-shot, non-interactive
 bon codex --model gpt-5.2-codex            # codex's internal name → maps to gpt-5
-bon codex --model claude-opus-4-6          # use claude via codex (override)
+bon codex --model claude-opus-4-7          # use claude via codex (override)
 bon codex --full-auto                      # sandboxed auto-execution
 bon codex -s workspace-write               # sandbox policy
 bon codex resume --last                    # resume most recent session

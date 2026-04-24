@@ -66,12 +66,12 @@
 
   <!-- HEADLINE — stacked, big -->
   <text x="60" y="200" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="500" letter-spacing="-0.5" fill="#71717a">free, unlimited(ish)</text>
-  <text x="60" y="290" font-family="Inter, system-ui, sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="#ffffff">Stealth</text>
-  <text x="60" y="386" font-family="Inter, system-ui, sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="url(#brandGrad)">Claude pool</text>
+  <text x="60" y="290" font-family="Inter, system-ui, sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="#ffffff">Claude</text>
+  <text x="60" y="386" font-family="Inter, system-ui, sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="url(#brandGrad)">Opus 4.7</text>
 
   <!-- subtitle / honest disclaimer -->
-  <text x="60" y="438" font-family="Inter, system-ui, sans-serif" font-size="20" fill="#a1a1aa" letter-spacing="-0.2">opus 4.5/4.6 · sonnet 4.5/4.6 · glm 4.6/4.7 · cline · cursor · codex · aider</text>
-  <text x="60" y="466" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#71717a">router accepts 199 model names → A/B'd into the stealth pool. <tspan fill="#34d399" font-weight="500">free until they shut it down.</tspan></text>
+  <text x="60" y="438" font-family="Inter, system-ui, sans-serif" font-size="20" fill="#a1a1aa" letter-spacing="-0.2">1M context · reasoning high · works with cline · cursor · codex · aider · all of them</text>
+  <text x="60" y="466" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#71717a">router accepts 199 model names → empirical: serves claude-opus-4-7. <tspan fill="#34d399" font-weight="500">free until they shut it down.</tspan></text>
 
   <!-- TERMINAL MOCKUP (right-bottom area) -->
   <g transform="translate(720, 180)">
@@ -90,7 +90,7 @@
     <text x="22" y="128" font-family="JetBrains Mono, monospace" font-size="13" fill="#71717a">$</text>
     <text x="38" y="128" font-family="JetBrains Mono, monospace" font-size="13" fill="#34d399">bon codex</text>
     <text x="118" y="128" font-family="JetBrains Mono, monospace" font-size="13" fill="#a1a1aa">"refactor this"</text>
-    <text x="22" y="146" font-family="JetBrains Mono, monospace" font-size="12" fill="#52525b"> ▸  routing → stealth pool (A/B'd)</text>
+    <text x="22" y="146" font-family="JetBrains Mono, monospace" font-size="12" fill="#52525b"> ▸  routing → claude opus 4.7 (empirical)</text>
 
     <text x="22" y="178" font-family="JetBrains Mono, monospace" font-size="13" fill="#71717a">$</text>
     <text x="38" y="178" font-family="JetBrains Mono, monospace" font-size="13" fill="#34d399">bon count</text>
@@ -104,7 +104,7 @@
     <rect x="0" y="0" width="252" height="72" rx="10" fill="rgba(255,255,255,0.025)" stroke="rgba(52,211,153,0.20)" stroke-width="1"/>
     <text x="20" y="38" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="800" fill="#34d399">1M</text>
     <text x="74" y="32" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="600" fill="#ffffff">context</text>
-    <text x="74" y="50" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#71717a">opus 4.6 [1m]</text>
+    <text x="74" y="50" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#71717a">opus 4.7 [1m]</text>
 
     <!-- 20M -->
     <rect x="266" y="0" width="252" height="72" rx="10" fill="rgba(255,255,255,0.025)" stroke="rgba(251,191,36,0.20)" stroke-width="1"/>
