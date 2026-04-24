@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="og-image-4k.png"><img src="og-image.png" alt="bonsai.js — free Claude Opus 4.7" /></a>
+  <a href="og-image-4k.png"><img src="og-image.png" alt="bonsai.js — free stealth Claude pool" /></a>
   <br>
   <sub><i>preview shown at 2400×1260 (retina) · <a href="og-image-4k.png">4800×2520 4K</a> · <a href="trybons/og-image.svg">SVG source</a></i></sub>
 </p>
@@ -97,7 +97,7 @@ upload runs in a **detached background process** (survives ctrl+c). 5 minute win
 - **`bon count "prompt"`** — free pre-flight token counter (bonsai router has an undocumented `/v1/messages/count_tokens` endpoint). zero inference cost.
 - **OG image** for social previews — 1200×630 PNG generated from SVG, injected as og:image on all UI pages.
 - **`bon ui` auto-installs + self-updates** — missing trybons/ folder? prompts to download. newer version on github? prompts to update. no `git clone` needed.
-- **199 of 213 models confirmed working** through bonsai router (see [MODELS.md](MODELS.md)) — including GPT-5, Gemini 2.5/3.1, Claude Opus 4.7, Haiku 4.5, GLM-4.7, Qwen 3.5, DeepSeek V3.2, Mixtral, Kimi K2.5, Cohere Command, MiniMax M2.1, Llama, gpt-oss-120b.
+- **199 of 213 model names accepted** by bonsai router (see [MODELS.md](MODELS.md)) — including GPT-5, Gemini 2.5/3.1, Claude Opus 4.5/4.6, Sonnet 4.5/4.6, Haiku 4.5, GLM-4.6/4.7, Qwen 3.5, DeepSeek V3.2, Mixtral, Kimi K2.5, Cohere Command, MiniMax M2.1, Llama, gpt-oss-120b. **All map into the stealth pool — see honest update below.**
 
 ## v2.4.x highlights
 
