@@ -59,12 +59,14 @@ they replay **1% of all sign-in sessions** to Datadog. mouse moves, clicks, form
 
 | service | id | source |
 |---|---|---|
-| Segment write key | `N2VehZC46evia2S5CiI8EE4m7JY04QVc` | inline `<script>` in app HTML |
-| **Google Tag Manager** | **`GTM-TKVWCH3V`** ← NEW | app HTML noscript |
-| Statsig (web) | `client-iipeckyRMmjuabUsf0oqp88IgKZsIZyPAPj0CNVJgtM` | known |
-| Statsig (CLI) | `client-yHi9oHzSCwrVz3W62PaedcrxeGnL7o2PjNJDByGkIsn` | known |
-| WorkOS client | `client_01K2ZG07ZTYR0FQNERK3PS2CB0` | known |
-| Cloudflare account | `30139b275891425c8cee99b8155240cd` | known |
+| Segment write key | _redacted from docs (visible in app HTML)_ | inline `<script>` in app HTML |
+| **Google Tag Manager** | _redacted from docs_ ← NEW | app HTML noscript |
+| Statsig (web) | _redacted from docs_ | trybons app JS bundle |
+| Statsig (CLI) | _redacted from docs_ | `@bonsai-ai/cli` source |
+| WorkOS client | _redacted from docs_ | trybons auth flow |
+| Cloudflare account | _redacted from docs_ | trybons app HTML |
+
+> Note: these are all **public client-side SDK keys** (write-only telemetry tokens, not server secrets). They're embedded in trybons's own JS bundle and visible to anyone who opens DevTools on `app.trybons.ai`. We've removed the literal values from this doc to reduce link-rot risk and keep the project low-profile. To inspect them yourself: run `bon statsig` (uses the keys from your local install) or open browser DevTools on `app.trybons.ai` and search for `statsig-api-key` / `writeKey` / `pub`.
 
 ### Statsig CDN domains (NEW)
 - `featureassets.org/v1` (returns "RBAC: access denied" without proper SDK key + path)

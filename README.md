@@ -595,14 +595,7 @@ When key #1 hits the limit, it automatically switches to key #2 and keeps going.
 
 ## Leaked Keys
 
-```
-Statsig (web):   client-iipeckyRMmjuabUsf0oqp88IgKZsIZyPAPj0CNVJgtM
-Statsig (CLI):   client-yHi9oHzSCwrVz3W62PaedcrxeGnL7o2PjNJDByGkIsn
-WorkOS Client:   client_01K2ZG07ZTYR0FQNERK3PS2CB0
-Segment:         N2VehZC46evia2S5CiI8EE4m7JY04QVc
-Cloudflare:      30139b275891425c8cee99b8155240cd
-Datadog:         pubb28ba93eb59013963476c6dd6c190040
-```
+The bonsai client app embeds public SDK keys in its JavaScript bundle (Statsig, Segment, GTM, Cloudflare web analytics, Datadog RUM). They're write-only telemetry tokens, not secrets — anyone can read them in browser DevTools on `app.trybons.ai`. We don't republish them here; if you want to inspect, run `bon statsig` (uses the keys from your local install) or open DevTools on their app and search for `statsig-api-key` / `writeKey` / `pub` strings.
 
 ## Infrastructure
 
