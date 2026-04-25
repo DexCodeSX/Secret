@@ -282,22 +282,32 @@ function _updCachePath() { return path.join(cfg.configDir, 'update-cache.json');
 function _loadUpdCache() { try { return JSON.parse(fs.readFileSync(_updCachePath(), 'utf8')); } catch { return null; } }
 function _saveUpdCache(o) { try { fs.mkdirSync(cfg.configDir, { recursive: true }); fs.writeFileSync(_updCachePath(), JSON.stringify(o, null, 2)); } catch {} }
 
-async function checkSelfUpdate(silent = false) {
+async function checkSelfUpdate(silent = false, force = false) {
   try {
     let cache = _loadUpdCache();
-    let fresh = cache && (Date.now() - cache.at) < 6*60*60*1000;
+    let fresh = !force && cache && (Date.now() - cache.at) < 6*60*60*1000;
     let latest = null, upstream = null;
 
     if (fresh && silent) {
       latest = cache.latest;
       upstream = cache.upstream;
     } else {
-      let res = await req(`${REPO_RAW}/bonsai.js`, { timeout: 5000 });
-      let remote = typeof res.body === 'string' ? res.body : '';
-      let m = remote.match(/VERSION\s*=\s*"([^"]+)"/);
-      latest = m ? m[1] : null;
-      // also peek at upstream bonsai npm packages so we can warn the user
-      // when bonsai bumps a package that bon was built against
+      // npm registry is authoritative — that's where the package actually lives.
+      // github raw lagged behind on tag pushes and gave us "v2.5.19 (latest)" right
+      // after we shipped 2.5.20. trust npm.
+      try {
+        let r = await req('https://registry.npmjs.org/@dexcodesxs/bon/latest', { timeout: 5000 });
+        if (r.body?.version) latest = r.body.version;
+      } catch {}
+      // fallback to github raw if npm unreachable (offline-ish edge case)
+      if (!latest) {
+        try {
+          let res = await req(`${REPO_RAW}/bonsai.js`, { timeout: 5000 });
+          let remote = typeof res.body === 'string' ? res.body : '';
+          let m = remote.match(/VERSION\s*=\s*"([^"]+)"/);
+          latest = m ? m[1] : null;
+        } catch {}
+      }
       try { upstream = await checkBonsaiUpdates(); } catch {}
       _saveUpdCache({ at: Date.now(), latest, upstream });
     }
@@ -1266,7 +1276,9 @@ async function cmdUpdate() {
   banner();
   log('');
   let sp = spinner('checking for updates...');
-  let [self, pkgs] = await Promise.all([checkSelfUpdate(true), checkBonsaiUpdates()]);
+  // bon update always hits the live registry — caching is for the silent
+  // background nag, not when the user explicitly asked.
+  let [self, pkgs] = await Promise.all([checkSelfUpdate(true, true), checkBonsaiUpdates()]);
   sp.stop();
 
   let lines = [];

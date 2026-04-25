@@ -2,6 +2,18 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.21 — 2026-04-25
+
+**fix: `bon update` reporting "(latest)" when newer version was actually published.**
+
+two bugs stacked on top of each other:
+
+1. checkSelfUpdate had a 6h disk cache → `bon update` re-used a stale entry from earlier in the day instead of asking the registry. user-initiated `bon update` now force-bypasses cache (silent background nag still uses 6h cache, that's fine).
+
+2. checkSelfUpdate scraped `VERSION` out of the github raw `bonsai.js` file. that file lags behind tag pushes by 30+ seconds and can also be served stale from raw.githubusercontent CDN. swapped to `https://registry.npmjs.org/@dexcodesxs/bon/latest` as the source of truth — that's where the package actually ships. github raw is now a fallback if npm is unreachable.
+
+so right after `node release.cjs patch` ships v2.5.X, every existing install will see the new version on the next `bon update`.
+
 ## v2.5.20 — 2026-04-25
 
 two real bugs that snuck through. fixing now.
