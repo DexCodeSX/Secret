@@ -1,33 +1,36 @@
 <%- include('partials/head', { title: 'free frontier coding models' }) %>
 <%- include('partials/nav') %>
 
-<main class="grid-bg">
+<div class="aurora"></div>
+<div class="grain"></div>
+
+<main class="relative z-10 grid-bg">
   <!-- HERO -->
-  <section class="relative max-w-6xl mx-auto px-6 pt-20 pb-32 text-center overflow-hidden">
+  <section class="relative max-w-6xl mx-auto px-6 pt-24 pb-32 text-center overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none"></div>
 
-    <div class="relative animate-fade-in">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-zinc-400 mb-8">
+    <div class="relative">
+      <div class="rise rise-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass text-xs text-zinc-400 mb-8">
         <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full pulse-dot"></span>
-        199 models confirmed working · MIT licensed · zero telemetry
+        199 models confirmed working · MIT · zero telemetry
       </div>
 
-      <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.05]">
+      <h1 class="rise rise-2 text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.05]">
         free <span class="grad-text-multi">frontier</span><br>coding models
       </h1>
 
-      <p class="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+      <p class="rise rise-3 text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
         the open source dashboard for <a href="https://trybons.ai" class="text-emerald-400 hover:underline" target="_blank">bonsai</a>.
         runs locally, shares session w/ <code class="text-emerald-400 font-mono">bon</code> CLI,
         zero data leaves your machine.
       </p>
 
-      <div class="flex items-center justify-center gap-3 flex-wrap">
-        <a href="/login" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-ink-950 font-semibold rounded-lg transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20">
-          sign in →
+      <div class="rise rise-4 flex items-center justify-center gap-3 flex-wrap">
+        <a href="/login" class="btn-primary px-6 py-3 rounded-lg shadow-xl shadow-emerald-500/20 inline-flex items-center gap-2">
+          sign in <span aria-hidden>→</span>
         </a>
-        <a href="https://github.com/DexCodeSX/Secret" target="_blank" class="px-6 py-3 glass hover:bg-ink-800 text-white font-medium rounded-lg transition-all">
-          ★ github
+        <a href="https://github.com/DexCodeSX/Secret" target="_blank" class="btn-ghost px-6 py-3 glass text-white font-medium rounded-lg inline-flex items-center gap-2">
+          <span>★ github</span>
         </a>
       </div>
 
@@ -36,11 +39,11 @@
           ['199', 'models tested', 'emerald'],
           ['20M', 'tokens/day cap', 'amber'],
           ['$0', 'cost forever', 'sky'],
-          ['0', 'telemetry sent', 'rose'],
+          ['0',   'telemetry sent', 'rose'],
         ]; %>
-        <% tiles.forEach(([num, lbl, c]) => { %>
-          <div class="glass rounded-xl p-5 text-center hover:bg-ink-800/60 transition-colors">
-            <div class="text-3xl font-extrabold text-<%= c %>-400 mb-1"><%= num %></div>
+        <% tiles.forEach(([num, lbl, col], i) => { %>
+          <div class="rise rise-<%= Math.min(i+1,4) %> shine glass rounded-xl p-5 text-center transition-transform hover:-translate-y-0.5">
+            <div class="text-3xl font-extrabold text-<%= col %>-400 mb-1"><%= num %></div>
             <div class="text-zinc-500 text-xs uppercase tracking-wider"><%= lbl %></div>
           </div>
         <% }) %>
@@ -71,7 +74,7 @@
         ['Perplexity', 'perplexity', '11', 'sonar, pplx-online'],
       ]; %>
       <% families.forEach(([name, provider, count, sample]) => { %>
-        <div class="glass rounded-xl p-4 hover:bg-ink-800/60 transition-all hover:-translate-y-0.5 group">
+        <div class="shine glass rounded-xl p-4 transition-all hover:-translate-y-0.5 group">
           <div class="flex items-baseline justify-between mb-1">
             <div class="font-semibold text-white"><%= name %></div>
             <div class="text-xs text-emerald-400 font-mono"><%= count %></div>
@@ -95,7 +98,7 @@
         ['📊', 'full insight', 'usage, limits, key pool, activity log, model picker. all yours.'],
       ]; %>
       <% features.forEach(([icon, title, desc]) => { %>
-        <div class="glass rounded-xl p-6 hover:bg-ink-800/60 transition-colors">
+        <div class="shine glass rounded-xl p-6 transition-all hover:-translate-y-0.5">
           <div class="text-2xl mb-3"><%= icon %></div>
           <div class="font-semibold text-white mb-1.5"><%= title %></div>
           <div class="text-sm text-zinc-400 leading-relaxed"><%= desc %></div>

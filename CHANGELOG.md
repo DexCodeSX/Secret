@@ -2,6 +2,54 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.18 — 2026-04-25
+
+**fix: `bon multi` switch leaving the cli in a broken half-switched state.**
+
+before: switch wrote auth+key files but never refreshed the workos token. if the saved profile's access_token was expired and refresh failed silently, `getUser()` returned null and the next prompt showed `email: ?`. swapping back to the original account "fixed" it because that auth was still fresh — looked like a phantom bug.
+
+now `bon multi` switch:
+- saves the *current* account's latest auth back to its profile before swapping (so latest tokens persist for the account you're leaving)
+- after writing the target profile to disk, runs `ensureToken()` (force-refreshes if expired) and re-fetches `/auth/user`
+- writes the refreshed auth + live email back into the target profile
+- if verification fails: warns clearly + tells you exactly what to do (`bon login` then `bon multi` → save current)
+
+also new in `bon multi`:
+- shows current account email + masked key + profile count above the menu
+- highlights which profile is currently active in the list
+- "save current" suggests a name from the email local-part
+- "rename profile" added (option 4)
+- delete asks for confirmation, warns if it's the active profile
+
+**`bon --version` / `bon version` / `bon -v` is now a real version panel:**
+
+```
+  bon v2.5.18  — bonsai.js
+
+  ✓ @bonsai-ai/cli         0.4.13
+  ✓ @bonsai-ai/claude-code  2.1.112
+  ✓ @bonsai-ai/codex        0.105.1
+```
+
+when bonsai upstream bumps a package past what bon was compiled with, you'll see `0.4.13 → 0.4.14 upstream bumped` + a hint to run `bon update`. no more silently running an old `bon` against a drifted bonsai router.
+
+**background upstream-bump notice:**
+
+every command runs a 6h-cached check against the npm registry for `@bonsai-ai/cli`, `@bonsai-ai/codex`, `@bonsai-ai/claude-code`. if any moved, you get a one-liner: `bonsai upstream packages updated. bon --version for details.`. zero prompt spam — silent if everything matches, no Y/N if you're already on latest.
+
+**better unknown-command suggestions:**
+
+added ~30 new typo entries (`mutli`, `verison`, `dahsh`, `cofnig`, etc.). for completely unknown commands, levenshtein-matches against the real command list — `bon xyz` no longer just dumps help, suggests the closest real command if it's within editing distance.
+
+**trybons UI v3 polish:**
+- aurora gradient background (animated, slow drift, respects `prefers-reduced-motion`)
+- subtle film grain layer
+- deeper glass panels w/ inner highlight + drop shadow
+- shimmer-on-hover on cards (the .shine class)
+- staggered rise-in animations on hero
+- gradient primary button with proper hover lift
+- refined selection color, saturation-boosted backdrop-filter
+
 ## v2.5.17 — 2026-04-25
 
 **fix: `bon dash` and `bon pool` disagreeing on fresh/limited for the same key.**

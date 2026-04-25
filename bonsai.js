@@ -275,34 +275,72 @@ function reqStream(url, opts = {}) {
 }
 
 // -- updates --
+
+// 6h cache so background check doesn't hammer github+npm on every command.
+// stored alongside settings.
+function _updCachePath() { return path.join(cfg.configDir, 'update-cache.json'); }
+function _loadUpdCache() { try { return JSON.parse(fs.readFileSync(_updCachePath(), 'utf8')); } catch { return null; } }
+function _saveUpdCache(o) { try { fs.mkdirSync(cfg.configDir, { recursive: true }); fs.writeFileSync(_updCachePath(), JSON.stringify(o, null, 2)); } catch {} }
+
 async function checkSelfUpdate(silent = false) {
   try {
-    let res = await req(`${REPO_RAW}/bonsai.js`, { timeout: 5000 });
-    let remote = typeof res.body === 'string' ? res.body : '';
-    let match = remote.match(/VERSION\s*=\s*"([^"]+)"/);
+    let cache = _loadUpdCache();
+    let fresh = cache && (Date.now() - cache.at) < 6*60*60*1000;
+    let latest = null, upstream = null;
+
+    if (fresh && silent) {
+      latest = cache.latest;
+      upstream = cache.upstream;
+    } else {
+      let res = await req(`${REPO_RAW}/bonsai.js`, { timeout: 5000 });
+      let remote = typeof res.body === 'string' ? res.body : '';
+      let m = remote.match(/VERSION\s*=\s*"([^"]+)"/);
+      latest = m ? m[1] : null;
+      // also peek at upstream bonsai npm packages so we can warn the user
+      // when bonsai bumps a package that bon was built against
+      try { upstream = await checkBonsaiUpdates(); } catch {}
+      _saveUpdCache({ at: Date.now(), latest, upstream });
+    }
+
     let newer = (a, b) => { let [a1,a2,a3] = a.split('.').map(Number), [b1,b2,b3] = b.split('.').map(Number); return a1>b1 || (a1===b1 && a2>b2) || (a1===b1 && a2===b2 && a3>b3); };
-    if (match && newer(match[1], VERSION)) {
+    let upstreamStale = upstream && (upstream.cli?.changed || upstream.codex?.changed || upstream.claudeCode?.changed);
+
+    if (latest && newer(latest, VERSION)) {
       if (silent) {
-        // background check: compact one-liner alert
         log('');
-        log(`  ${c.yellow}${S.bolt}${c.reset} ${c.bold}${c.yellow}v${match[1]} available${c.reset} ${c.mute}(you have v${VERSION})${c.reset}  ${c.dim}${S.arr} ${c.cyan}bon update${c.reset}`);
+        let extra = upstreamStale ? `  ${c.dim}${S.arr} bonsai upstream bumped${c.reset}` : '';
+        log(`  ${c.yellow}${S.bolt}${c.reset} ${c.bold}${c.yellow}v${latest} available${c.reset} ${c.mute}(you have v${VERSION})${c.reset}  ${c.dim}${S.arr} ${c.cyan}bon update${c.reset}${extra}`);
       } else {
         log('');
-        box([
+        let lines = [
           `${c.yellow}${S.bolt} Update available!${c.reset}`,
           ``,
           `  Current: ${c.red}v${VERSION}${c.reset}`,
-          `  Latest:  ${c.green}v${match[1]}${c.reset}`,
+          `  Latest:  ${c.green}v${latest}${c.reset}`,
           ``,
           `  ${c.dim}platform: ${c.cyan}${detectPlatform()}${c.reset}`,
-        ], { title: 'UPDATE', color: c.yellow, width: 58 });
+        ];
+        if (upstreamStale) {
+          lines.push('');
+          lines.push(`  ${c.yellow}${S.warn}${c.reset} bonsai upstream packages bumped — fingerprint may drift soon`);
+        }
+        box(lines, { title: 'UPDATE', color: c.yellow, width: 60 });
         log('');
-        let yes = await askYN(`${c.bold}Update to v${match[1]} now?${c.reset}`);
+        let yes = await askYN(`${c.bold}Update to v${latest} now?${c.reset}`);
         if (yes) await performSelfUpdate();
         else { info('skipped. run ' + c.cyan + 'bon update' + c.reset + ' when ready.'); }
       }
-      return { available: true, current: VERSION, latest: match[1] };
+      return { available: true, current: VERSION, latest };
     }
+
+    // bon is up to date but bonsai upstream changed — silent one-liner so the
+    // user knows the daily token-limit fingerprint may need a fresh `bon update`
+    // soon (we'll re-bake cfg.knownVersions on the next bon release).
+    if (silent && upstreamStale) {
+      log('');
+      log(`  ${c.dim}${S.dot}${c.reset} ${c.dim}bonsai upstream packages updated. ${c.cyan}bon --version${c.reset} ${c.dim}for details.${c.reset}`);
+    }
+
     return { available: false };
   } catch { return { available: false }; }
 }
@@ -1395,19 +1433,173 @@ async function cmdRotate() {
   launchWithKey(active, extra);
 }
 
+// `bon --version` / `bon version` — full multi-line panel like the user asked.
+// shows bon's own version, plus the bonsai upstream packages we mimic
+// (cli/codex/cc) with their npm-latest. flags any stale (bon was compiled
+// against an older upstream → header fingerprint may break soon).
+async function cmdVersion() {
+  log('');
+  log(`  ${c.bold}${c.green}bon${c.reset} ${c.dim}v${VERSION}${c.reset}  ${c.mute}— bonsai.js${c.reset}`);
+
+  let pkgs = null;
+  let sp = spinner('checking upstream versions...');
+  try { pkgs = await checkBonsaiUpdates(); } catch {}
+  sp.stop();
+
+  let row = (label, known, latest) => {
+    if (!latest) return `  ${c.dim}${label.padEnd(22)}${c.reset} ${c.mute}${known}${c.reset} ${c.dim}(offline)${c.reset}`;
+    let stale = latest !== known;
+    let mark = stale ? `${c.yellow}${S.warn}${c.reset}` : `${c.green}${S.chk}${c.reset}`;
+    let ver = stale
+      ? `${c.yellow}${known}${c.reset} ${c.dim}${S.arr}${c.reset} ${c.green}${latest}${c.reset} ${c.yellow}upstream bumped${c.reset}`
+      : `${c.green}${latest}${c.reset}`;
+    return `  ${mark} ${c.cyan}${label.padEnd(20)}${c.reset} ${ver}`;
+  };
+
+  log('');
+  log(row('@bonsai-ai/cli',         cfg.knownVersions.cli,        pkgs?.cli?.version));
+  log(row('@bonsai-ai/claude-code', cfg.knownVersions.claudeCode, pkgs?.claudeCode?.version));
+  log(row('@bonsai-ai/codex',       cfg.knownVersions.codex,      pkgs?.codex?.version));
+  log('');
+
+  let anyStale = pkgs && (pkgs.cli?.changed || pkgs.codex?.changed || pkgs.claudeCode?.changed);
+  if (anyStale) {
+    log(`  ${c.yellow}${S.bolt}${c.reset} ${c.dim}upstream bonsai packages have new versions.${c.reset}`);
+    log(`  ${c.dim}${S.arr}${c.reset} run ${c.cyan}bon update${c.reset} to grab the latest ${c.bold}bon${c.reset} ${c.dim}(rebuilt against new upstream)${c.reset}`);
+    log('');
+  }
+}
+
 async function cmdMulti() {
+  banner();
   let dir = path.join(cfg.configDir, 'profiles');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   let profiles = []; try { profiles = fs.readdirSync(dir).filter(f => f.endsWith('.json')); } catch {}
-  let { index } = await pick("Multi-Account:", ['List profiles', 'Save current', 'Switch profile', 'Delete profile']);
+
+  // resolve current account so we can show it on the menu screen
+  let curEmail = '?';
+  let curKey = getStoredKey();
+  try { let u = await getUser(); if (u?.email) curEmail = u.email; } catch {}
+
+  log('');
+  log(`  ${c.dim}current${c.reset}   ${c.bold}${c.green}${curEmail}${c.reset}  ${c.mute}${maskKey(curKey)}${c.reset}`);
+  log(`  ${c.dim}profiles${c.reset}  ${c.bold}${profiles.length}${c.reset}`);
+  log('');
+
+  let { index } = await pick("Multi-Account:", ['List profiles', 'Save current', 'Switch profile', 'Rename profile', 'Delete profile']);
+
   if (index === 0) {
-    if (!profiles.length) { info("no profiles"); return; }
-    let lines = profiles.map(p => { let d = loadJson(`profiles/${p}`); return `  ${c.cyan}${p.replace('.json','')}${c.reset}  ${d?.email||'?'}`; });
-    box(lines, { title: 'PROFILES', color: c.cyan });
+    if (!profiles.length) { info("no profiles. save one with option [2]"); return; }
+    let lines = profiles.map(p => {
+      let d = loadJson(`profiles/${p}`);
+      let nm = p.replace('.json','');
+      let isCur = d?.apiKey && d.apiKey === curKey;
+      let mark = isCur ? `${c.green}${S.chk}${c.reset}` : ' ';
+      return `  ${mark} ${c.cyan}${nm.padEnd(14)}${c.reset} ${(d?.email||'?').padEnd(28)} ${c.mute}${maskKey(d?.apiKey)}${c.reset}`;
+    });
+    box(lines, { title: 'PROFILES', color: c.cyan, width: 70 });
+    return;
   }
-  if (index === 1) { let name = await ask("Profile name: "); if (!name) return; let auth = loadJson(cfg.tokenFile); let k = loadJson(cfg.keyFile); let u = await getUser(); saveJson(`profiles/${name}.json`, { email: u?.email, auth, apiKey: k?.key }); success(`saved '${name}'`); }
-  if (index === 2) { if (!profiles.length) return; let { index: pi } = await pick("Switch to:", profiles.map(p=>p.replace('.json',''))); let d = loadJson(`profiles/${profiles[pi]}`); if (d?.auth) saveJson(cfg.tokenFile, d.auth); if (d?.apiKey) saveJson(cfg.keyFile, { key: d.apiKey, name: profiles[pi].replace('.json','') }); success(`switched`); }
-  if (index === 3) { if (!profiles.length) return; let { index: di } = await pick("Delete:", profiles.map(p=>p.replace('.json',''))); fs.unlinkSync(path.join(dir, profiles[di])); success("deleted"); }
+
+  if (index === 1) {
+    let auth = loadJson(cfg.tokenFile);
+    let k = loadJson(cfg.keyFile);
+    if (!auth || !k?.key) { fail("nothing to save — run 'bon login' + 'bon keys' first"); return; }
+    let suggest = curEmail !== '?' ? curEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'') : '';
+    let name = await ask(`Profile name${suggest ? ` ${c.dim}[${suggest}]${c.reset}` : ''}: `);
+    if (!name) name = suggest;
+    if (!name) return;
+    if (profiles.includes(`${name}.json`)) {
+      let ow = await askYN(`profile '${name}' exists. overwrite?`);
+      if (!ow) return;
+    }
+    saveJson(`profiles/${name}.json`, { email: curEmail !== '?' ? curEmail : null, auth, apiKey: k.key, savedAt: new Date().toISOString() });
+    success(`saved '${name}' ${c.dim}(${curEmail})${c.reset}`);
+    return;
+  }
+
+  if (index === 2) {
+    if (!profiles.length) { info("no profiles to switch to"); return; }
+    let opts = profiles.map(p => {
+      let d = loadJson(`profiles/${p}`);
+      let nm = p.replace('.json','');
+      let isCur = d?.apiKey && d.apiKey === curKey;
+      return `${nm.padEnd(14)} ${c.dim}${d?.email || '?'}${c.reset}${isCur ? ` ${c.green}(current)${c.reset}` : ''}`;
+    });
+    let { index: pi } = await pick("Switch to:", opts);
+    let pname = profiles[pi].replace('.json','');
+    let d = loadJson(`profiles/${profiles[pi]}`);
+    if (!d?.auth || !d?.apiKey) { fail(`profile '${pname}' is corrupt — re-save it`); return; }
+
+    // before swapping, snapshot the current account back into its own profile
+    // if it exists (so latest tokens persist for the account we're leaving)
+    if (curKey) {
+      for (let pf of profiles) {
+        let pd = loadJson(`profiles/${pf}`);
+        if (pd?.apiKey === curKey && pf !== profiles[pi]) {
+          let curAuth = loadJson(cfg.tokenFile);
+          if (curAuth) saveJson(`profiles/${pf}`, { ...pd, auth: curAuth, savedAt: new Date().toISOString() });
+          break;
+        }
+      }
+    }
+
+    saveJson(cfg.tokenFile, d.auth);
+    saveJson(cfg.keyFile, { key: d.apiKey, name: pname, created: new Date().toISOString() });
+
+    // verify the swap actually worked: refresh token if needed, fetch live user
+    let sp = spinner('verifying account...');
+    let liveEmail = null, refreshedAuth = null;
+    try {
+      // ensureToken will refresh if expired; if refresh fails, we caught it below
+      let tok = await ensureToken();
+      if (tok) {
+        let u = await getUser();
+        if (u?.email) liveEmail = u.email;
+        // re-read auth after possible refresh and persist back into the profile
+        refreshedAuth = loadJson(cfg.tokenFile);
+        if (refreshedAuth) saveJson(`profiles/${profiles[pi]}`, { ...d, auth: refreshedAuth, email: liveEmail || d.email, savedAt: new Date().toISOString() });
+      }
+    } catch {}
+    sp.stop();
+
+    if (liveEmail) {
+      success(`switched ${c.dim}${S.arr}${c.reset} ${c.bold}${c.green}${liveEmail}${c.reset} ${c.mute}(${pname})${c.reset}`);
+    } else {
+      warn(`switched to '${pname}' but could not verify — refresh token may be stale`);
+      info(`fix: ${c.cyan}bon login${c.reset} (re-auths this account, then ${c.cyan}bon multi${c.reset} ${S.arr} Save current to overwrite)`);
+    }
+    return;
+  }
+
+  if (index === 3) {
+    if (!profiles.length) return;
+    let { index: pi } = await pick("Rename:", profiles.map(p=>p.replace('.json','')));
+    let oldName = profiles[pi].replace('.json','');
+    let nn = await ask(`New name for '${oldName}': `);
+    if (!nn || nn === oldName) return;
+    if (profiles.includes(`${nn}.json`)) { fail("name already taken"); return; }
+    fs.renameSync(path.join(dir, profiles[pi]), path.join(dir, `${nn}.json`));
+    // if the renamed profile is the active one, update apikey.json's name too
+    let d = loadJson(`profiles/${nn}.json`);
+    let cur = loadJson(cfg.keyFile);
+    if (cur?.key && d?.apiKey === cur.key) saveJson(cfg.keyFile, { ...cur, name: nn });
+    success(`renamed ${c.dim}${oldName}${c.reset} ${S.arr} ${c.cyan}${nn}${c.reset}`);
+    return;
+  }
+
+  if (index === 4) {
+    if (!profiles.length) return;
+    let { index: di } = await pick("Delete:", profiles.map(p=>p.replace('.json','')));
+    let dname = profiles[di].replace('.json','');
+    let d = loadJson(`profiles/${profiles[di]}`);
+    let isCur = d?.apiKey && d.apiKey === curKey;
+    let yes = await askYN(`delete '${dname}'${isCur ? c.yellow + ' (currently active!)' + c.reset : ''}?`);
+    if (!yes) return;
+    fs.unlinkSync(path.join(dir, profiles[di]));
+    success(`deleted '${dname}'`);
+    return;
+  }
 }
 
 async function cmdTroubleshoot() {
@@ -2359,22 +2551,31 @@ async function cmdConfig() {
 
 // -- typo map --
 const TYPOS = {
-  'loign':'login', 'logn':'login', 'lgin':'login', 'lgoin':'login',
-  'lgout':'logout', 'logut':'logout',
-  'strat':'start', 'satrt':'start', 'sart':'start',
-  'kyes':'keys', 'kets':'keys',
-  'tset':'test', 'tets':'test',
-  'udpate':'update', 'upate':'update', 'upadte':'update',
-  'heatlh':'health', 'helath':'health',
-  'troubeshoot':'troubleshoot', 'troubleshot':'troubleshoot',
-  'activty':'activity', 'acitivity':'activity',
-  'staeal':'steal', 'stael':'steal',
-  'mutli':'multi', 'mluti':'multi',
-  'bnech':'bench', 'benhc':'bench', 'becnh':'bench', 'bnch':'bench',
-  'fingerpint':'fingerprint', 'fingerprit':'fingerprint', 'finerprint':'fingerprint', 'fingerrpint':'fingerprint',
-  'resmue':'resume', 'reusme':'resume',
-  'agnts':'agents', 'agetns':'agents', 'agets':'agents',
-  'dahs':'dash', 'dsah':'dash', 'dashbord':'dash', 'dsh':'dash',
+  'loign':'login', 'logn':'login', 'lgin':'login', 'lgoin':'login', 'logiin':'login', 'login.':'login',
+  'lgout':'logout', 'logut':'logout', 'lgoout':'logout',
+  'strat':'start', 'satrt':'start', 'sart':'start', 'srtart':'start', 'star':'start',
+  'kyes':'keys', 'kets':'keys', 'kesy':'keys', 'key':'keys',
+  'tset':'test', 'tets':'test', 'tes':'test',
+  'udpate':'update', 'upate':'update', 'upadte':'update', 'updaet':'update', 'updte':'update',
+  'heatlh':'health', 'helath':'health', 'healt':'health',
+  'troubeshoot':'troubleshoot', 'troubleshot':'troubleshoot', 'troublshoot':'troubleshoot',
+  'activty':'activity', 'acitivity':'activity', 'activitiy':'activity',
+  'staeal':'steal', 'stael':'steal', 'stela':'steal',
+  'mutli':'multi', 'mluti':'multi', 'mlti':'multi', 'mutil':'multi', 'multie':'multi',
+  'bnech':'bench', 'benhc':'bench', 'becnh':'bench', 'bnch':'bench', 'bnech':'bench',
+  'fingerpint':'fingerprint', 'fingerprit':'fingerprint', 'finerprint':'fingerprint', 'fingerrpint':'fingerprint', 'fingerpriint':'fingerprint',
+  'resmue':'resume', 'reusme':'resume', 'reseme':'resume',
+  'agnts':'agents', 'agetns':'agents', 'agets':'agents', 'agnets':'agents',
+  'dahs':'dash', 'dsah':'dash', 'dashbord':'dash', 'dsh':'dash', 'dahsh':'dash', 'dashboar':'dash',
+  'verison':'version', 'vesrion':'version', 'verson':'version', 'versoin':'version', 'verstion':'version',
+  'pol':'pool', 'pooll':'pool', 'pol':'pool',
+  'rotat':'rotate', 'rotae':'rotate', 'rotaet':'rotate',
+  'porxy':'proxy', 'prxy':'proxy', 'prox':'proxy',
+  'mdoels':'models', 'modeles':'models', 'mdels':'models', 'model':'models',
+  'wohami':'whoami', 'whaomi':'whoami', 'whami':'whoami',
+  'lmits':'limits', 'limts':'limits', 'limis':'limits',
+  'snopp':'snoop', 'snoo':'snoop', 'snopo':'snoop',
+  'cofnig':'config', 'confg':'config', 'cofig':'config',
 };
 
 // -- main --
@@ -2568,7 +2769,7 @@ async function main() {
     return;
   }
 
-  if (cmd === '--version' || cmd === '-v') { log(`${c.bold}${c.green}bonsai.js${c.reset} ${c.dim}v${VERSION}${c.reset}`); return; }
+  if (cmd === '--version' || cmd === '-v' || cmd === 'version') { await cmdVersion(); return; }
 
   // typo correction
   if (TYPOS[cmd]) {
@@ -2582,7 +2783,7 @@ async function main() {
 
   // background update check — runs while command executes, prints after
   let updateP = null;
-  if (!['update','dump','help','--help','-h','troubleshoot','whoami','config'].includes(cmd)) {
+  if (!['update','dump','help','--help','-h','troubleshoot','whoami','config','version','--version','-v'].includes(cmd)) {
     updateP = checkSelfUpdate(true).catch(() => {});
   }
 
@@ -2618,11 +2819,29 @@ async function main() {
       case 'snoop': await cmdSnoop(); break;
       case 'troubleshoot': case 'fix': await cmdTroubleshoot(); break;
       case 'update': await cmdUpdate(); break;
+      case 'version': await cmdVersion(); break;
       case 'statsig': await cmdStatsig(); break;
       case 'dump': await cmdDump(); break;
-      default:
-        fail(`unknown command: ${cmd}`);
-        info(`run ${c.cyan}bon --help${c.reset} to see all commands`);
+      default: {
+        // suggest the closest known command instead of just failing
+        let known = ['login','logout','start','cc','codex','agents','dash','count','ui','keys','test','info','whoami','config','activity','limits','stats','health','proxy','models','bench','fingerprint','api','pool','rotate','multi','steal','snoop','troubleshoot','update','version','statsig','dump','help'];
+        let lev = (a, b) => {
+          let m = Array.from({length: a.length+1}, () => Array(b.length+1).fill(0));
+          for (let i = 0; i <= a.length; i++) m[i][0] = i;
+          for (let j = 0; j <= b.length; j++) m[0][j] = j;
+          for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+            m[i][j] = a[i-1] === b[j-1] ? m[i-1][j-1] : 1 + Math.min(m[i-1][j], m[i][j-1], m[i-1][j-1]);
+          return m[a.length][b.length];
+        };
+        let best = null, bestD = 99;
+        for (let k of known) { let d = lev(cmd, k); if (d < bestD) { bestD = d; best = k; } }
+        fail(`unknown command: ${c.bold}${cmd}${c.reset}`);
+        if (best && bestD <= Math.max(2, Math.floor(cmd.length/2))) {
+          info(`did you mean ${c.cyan}${c.bold}bon ${best}${c.reset}?`);
+        } else {
+          info(`run ${c.cyan}bon --help${c.reset} to see all commands`);
+        }
+      }
     }
   } catch (e) {
     fail(e.message);
