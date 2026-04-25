@@ -2,6 +2,14 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.17 — 2026-04-25
+
+**fix: `bon dash` and `bon pool` disagreeing on fresh/limited for the same key.**
+
+root cause: `api.js` kept rate-limit state in an in-memory `Set` — lost on restart, never written to disk. `bonsai.js` (the cli) used `~/.bonsai-oss/pool-state.json`. so `bon dash` (polls api.js `/stats`) and `bon pool` (reads disk) reported different states, and an `api.js` restart forgot every limited key — same key hammered to 429 again.
+
+fix: `api.js` now reads/writes the same `pool-state.json` the cli uses. single source of truth across `bon api`, `bon proxy --rotate`, `bon rotate`, `bon pool`, `bon dash`. limits survive restarts, get pruned at 00:00 UTC.
+
 ## v2.5.8 — 2026-04-23
 
 **bon now ships via npm.** removes the curl|bash install scripts entirely. cleaner distribution, cross-platform updates with one command.

@@ -166,6 +166,25 @@ function getPool() {
   return keys;
 }
 
+// shared pool-state.json — same file bonsai.js (cli) writes to.
+// keeps `bon pool`, `bon dash`, and the api proxy in sync on which keys are
+// rate-limited. survives api.js restarts. cleared at 00:00 UTC.
+function poolStateFile() { return path.join(cfgDir, 'pool-state.json'); }
+function loadPoolState() {
+  try { return JSON.parse(fs.readFileSync(poolStateFile(), 'utf8')); }
+  catch { return { limited: {}, index: 0 }; }
+}
+function savePoolState(s) {
+  try { fs.mkdirSync(cfgDir, { recursive: true }); } catch {}
+  try { fs.writeFileSync(poolStateFile(), JSON.stringify(s, null, 2)); } catch {}
+}
+function todayUtc() { return new Date().toISOString().slice(0, 10); }
+function pruneStale(s) {
+  let t = todayUtc();
+  for (let k of Object.keys(s.limited)) if (s.limited[k] < t) delete s.limited[k];
+  return s;
+}
+
 // -- http --
 
 async function fwd(url, opts = {}) {
@@ -451,21 +470,31 @@ function convertChunk(line, model, id) {
 // -- state --
 
 let pool = [];
-let poolIdx = 0;
-let limited = new Set();
 let stats = { reqs: 0, ok: 0, errs: 0, tokIn: 0, tokOut: 0, started: Date.now() };
 
+function isLimited(key) {
+  let s = pruneStale(loadPoolState());
+  return s.limited[key] === todayUtc();
+}
+
 function activeKey() {
+  let s = pruneStale(loadPoolState());
+  let idx0 = s.index || 0;
   for (let i = 0; i < pool.length; i++) {
-    let idx = (poolIdx + i) % pool.length;
-    if (!limited.has(pool[idx].key)) return pool[idx];
+    let idx = (idx0 + i) % pool.length;
+    if (s.limited[pool[idx].key] !== todayUtc()) {
+      if (idx !== s.index) { s.index = idx; savePoolState(s); }
+      return pool[idx];
+    }
   }
   return null;
 }
 
 function rotate(badKey) {
-  limited.add(badKey);
-  poolIdx = (poolIdx + 1) % pool.length;
+  let s = pruneStale(loadPoolState());
+  s.limited[badKey] = todayUtc();
+  s.index = ((s.index || 0) + 1) % Math.max(pool.length, 1);
+  savePoolState(s);
   let next = activeKey();
   if (next) console.log(`  ${$.orn}${S.bolt}${$.r} ${$.d}rotated${$.r}  ${$.mute}${maskKey(badKey)}${$.r} ${$.d}${S.arr}${$.r} ${$.grn}${maskKey(next.key)}${$.r} ${$.mute}(${next.name})${$.r}`);
   return next;
@@ -556,7 +585,7 @@ function serve(port) {
         let poolView = pool.map(k => ({
           name: k.name,
           masked: maskKey(k.key),
-          limited: limited.has(k.key),
+          limited: isLimited(k.key),
           active: active && k.key === active.key,
         }));
         res.writeHead(200, json());
@@ -981,11 +1010,18 @@ async function main() {
     } catch { warn('auto-capture failed'); }
   }
 
-  // daily limit reset check
-  let today = new Date().toISOString().slice(0,10);
+  // daily limit reset check — pool-state.json is shared with the cli, so
+  // pruneStale() on next read will drop yesterday's entries. emit a log line
+  // when the date rolls so the dash shows it.
+  let today = todayUtc();
   setInterval(() => {
-    let d = new Date().toISOString().slice(0,10);
-    if (d !== today) { limited.clear(); today = d; console.log(`  ${$.grn}${S.chk}${$.r} ${$.d}daily limits reset${$.r}`); }
+    let d = todayUtc();
+    if (d !== today) {
+      today = d;
+      let s = pruneStale(loadPoolState());
+      savePoolState(s);
+      console.log(`  ${$.grn}${S.chk}${$.r} ${$.d}daily limits reset${$.r}`);
+    }
   }, 60000);
 
   serve(port);
