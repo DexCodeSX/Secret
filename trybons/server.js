@@ -360,7 +360,7 @@ app.get('/dashboard/settings', requireAuth, (req, res) => {
 // ─── DOCS — auto-fetch from GitHub raw, cache locally, render via marked ───
 // works from any install location (next-to-bon, ~/.bonsai-oss/trybons, etc)
 // because we don't depend on a sibling git repo. github is source of truth.
-const REPO_RAW = 'https://raw.githubusercontent.com/DexCodeSX/Secret/main';
+const REPO_RAW = 'https://raw.githubusercontent.com/DexCodeSX/bons/main';
 const DOCS_CACHE = path.join(__dirname, '.docs-cache');
 const DOCS_TTL = 3600 * 1000; // 1h
 const ALL_DOCS = [

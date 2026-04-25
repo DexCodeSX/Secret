@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // api.js v2.4.0 — bonsai api proxy
-// github.com/DexCodeSX/Secret
+// github.com/DexCodeSX/bons
 // re'd from @bonsai-ai/cli 0.4.13 + @bonsai-ai/claude-code 2.1.112
 //
 // v2.4: --anon mode strips device/session correlation from outbound headers,

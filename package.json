@@ -52,13 +52,13 @@
     "aider",
     "codex"
   ],
-  "homepage": "https://github.com/DexCodeSX/Secret",
+  "homepage": "https://github.com/DexCodeSX/bons",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DexCodeSX/Secret.git"
+    "url": "git+https://github.com/DexCodeSX/bons.git"
   },
   "bugs": {
-    "url": "https://github.com/DexCodeSX/Secret/issues"
+    "url": "https://github.com/DexCodeSX/bons/issues"
   },
   "author": "DexCodeSX",
   "license": "MIT",

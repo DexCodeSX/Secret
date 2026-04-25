@@ -176,7 +176,7 @@ bug fix + multi-account UI.
 new flow:
 1. try local sibling repo first (works for dev from git checkout)
 2. fall back to local cache (`trybons/.docs-cache/`, 1h TTL)
-3. fall back to fetching from `raw.githubusercontent.com/DexCodeSX/Secret/main/`
+3. fall back to fetching from `raw.githubusercontent.com/DexCodeSX/bons/main/`
 4. on network fail with no cache → friendly error w/ refresh link
 
 now `/docs/models`, `/dashboard/models`, all docs pages work from any install location. docs always fresh from github (1h cache).

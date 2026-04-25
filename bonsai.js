@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // bonsai.js v2.4.0 — 23/04/2026
-// github.com/DexCodeSX/Secret
+// github.com/DexCodeSX/bons
 // re'd from @bonsai-ai/cli 0.4.13
 
 import { createInterface } from 'readline';
@@ -14,7 +14,7 @@ import http from 'http';
 import crypto from 'crypto';
 
 const VERSION = "2.5.18";
-const REPO = "DexCodeSX/Secret";
+const REPO = "DexCodeSX/bons";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
 const isTerm = process.env.TERMUX_VERSION != null;

@@ -119,5 +119,5 @@ run('git push --tags');
 
 console.log(`\n\x1b[1m\x1b[32m✓ released v${newVer}\x1b[0m`);
 console.log(`  npm:    https://www.npmjs.com/package/@dexcodesxs/bon`);
-console.log(`  github: https://github.com/DexCodeSX/Secret/releases/tag/v${newVer}`);
+console.log(`  github: https://github.com/DexCodeSX/bons/releases/tag/v${newVer}`);
 console.log(`  install: \x1b[36mnpm i -g @dexcodesxs/bon\x1b[0m`);
