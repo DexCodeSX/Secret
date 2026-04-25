@@ -2771,6 +2771,18 @@ async function main() {
 
   if (cmd === '--version' || cmd === '-v' || cmd === 'version') { await cmdVersion(); return; }
 
+  // misspelled --version / --help flags — just run them, don't make user retype
+  if (typeof cmd === 'string' && /^-{1,2}v[a-z]*$/i.test(cmd)) {
+    let stripped = cmd.replace(/^-+/, '');
+    let lev2 = (a, b) => { let m = Array.from({length: a.length+1}, () => Array(b.length+1).fill(0)); for (let i = 0; i <= a.length; i++) m[i][0] = i; for (let j = 0; j <= b.length; j++) m[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = a[i-1] === b[j-1] ? m[i-1][j-1] : 1 + Math.min(m[i-1][j], m[i][j-1], m[i-1][j-1]); return m[a.length][b.length]; };
+    if (lev2(stripped.toLowerCase(), 'version') <= 3) { await cmdVersion(); return; }
+  }
+  if (typeof cmd === 'string' && /^-{1,2}h[a-z]*$/i.test(cmd)) {
+    let stripped = cmd.replace(/^-+/, '');
+    let lev2 = (a, b) => { let m = Array.from({length: a.length+1}, () => Array(b.length+1).fill(0)); for (let i = 0; i <= a.length; i++) m[i][0] = i; for (let j = 0; j <= b.length; j++) m[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) m[i][j] = a[i-1] === b[j-1] ? m[i-1][j-1] : 1 + Math.min(m[i-1][j], m[i][j-1], m[i-1][j-1]); return m[a.length][b.length]; };
+    if (lev2(stripped.toLowerCase(), 'help') <= 2) { cmd = 'help'; }
+  }
+
   // typo correction
   if (TYPOS[cmd]) {
     let fixed = TYPOS[cmd];

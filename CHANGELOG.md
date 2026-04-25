@@ -2,6 +2,27 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.20 — 2026-04-25
+
+two real bugs that snuck through. fixing now.
+
+**1. `bon --verison` (and any --v* typo) now just runs version.**
+
+before: `bon --verison` → `unknown command: --verison` + suggestion → user has to retype.
+now: any flag-style typo of `--version` (`-verisom`, `-verison`, `--verison`, `-v*`) within edit distance 3 just executes `cmdVersion()`. same treatment for `--help` typos. you typed a flag, not a command — no point making you retype it.
+
+**2. trybons web ui — switch account same broken half-state as the CLI bug fixed in v2.5.18.**
+
+before: `/profiles/:name/switch` wrote `auth.json` blindly with the saved profile's possibly-expired access_token. dashboard re-rendered, `getUser()` failed, header showed `User: ?`. clicking switch again hit the same expired token. only a switch back to your *original* account (whose token was still fresh in memory) "fixed" it.
+
+now the switch route:
+- snapshots the current account's auth back to its profile before swap (so latest tokens persist for the account you're leaving)
+- runs the workos `refresh_token` grant on the target profile's auth before saving
+- fetches `/auth/user` to verify, then writes the refreshed auth + live email back into the target profile on disk
+- if verification fails it flashes a clear error instead of silently rendering `User: ?`
+
+basically the same fix the CLI got, ported to the express side.
+
 ## v2.5.18 — 2026-04-25
 
 **fix: `bon multi` switch leaving the cli in a broken half-switched state.**

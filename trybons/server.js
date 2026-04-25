@@ -289,16 +289,65 @@ app.get('/profiles', requireAuth, async (req, res) => {
   });
 });
 
-// switch active profile
+// refresh a profile's access token using its refresh_token
+async function refreshProfileToken(auth) {
+  if (!auth?.refresh_token) return auth;
+  try {
+    let r = await req(`${cfg.workos.apiUrl}/user_management/authenticate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: auth.refresh_token, client_id: cfg.workos.clientId }).toString(),
+    });
+    if (r.body?.access_token) { r.body.saved_at = Date.now(); return r.body; }
+  } catch {}
+  return auth;
+}
+
+// switch active profile — properly: snapshot current → load new → refresh → verify
 app.post('/profiles/:name/switch', requireAuth, async (req, res) => {
   let name = req.params.name.replace(/[^a-zA-Z0-9_-]/g, '');
   let p = path.join(PROFILES_DIR, `${name}.json`);
   if (!fs.existsSync(p)) { flash(res, `profile "${name}" not found`, 'error'); return res.redirect('/dashboard'); }
   try {
+    // 1. snapshot current account back to its profile (so leaving it isn't lost)
+    let curEmail = res.locals.user?.email;
+    if (curEmail) {
+      let curAuth = loadAuth();
+      let curKey = loadKey();
+      // find existing profile w/ this email; otherwise use sanitized email as name
+      let existing = listProfiles().find(pr => pr.email === curEmail);
+      let snapName = existing?.name || curEmail.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+      try {
+        fs.mkdirSync(PROFILES_DIR, { recursive: true });
+        fs.writeFileSync(path.join(PROFILES_DIR, `${snapName}.json`), JSON.stringify({
+          email: curEmail, auth: curAuth, apiKey: curKey?.key,
+        }, null, 2));
+      } catch {}
+    }
+
+    // 2. load target profile
     let data = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (data.auth) saveAuth(data.auth);
+    if (!data.auth) throw new Error('profile has no auth');
+
+    // 3. refresh token (target's access_token may be expired — got user "?" before this fix)
+    let fresh = await refreshProfileToken(data.auth);
+    saveAuth(fresh);
     if (data.apiKey) saveKey({ key: data.apiKey, name, created: new Date().toISOString() });
-    flash(res, `switched to "${name}"`, 'info');
+
+    // 4. verify by fetching /auth/user, persist email back to profile
+    try {
+      let u = await getUser(fresh.access_token);
+      if (u?.email) {
+        try {
+          fs.writeFileSync(p, JSON.stringify({ email: u.email, auth: fresh, apiKey: data.apiKey }, null, 2));
+        } catch {}
+        flash(res, `switched to ${u.email}`, 'info');
+      } else {
+        flash(res, `switched to "${name}" but couldn't verify session — try re-login if dashboard shows "?"`, 'error');
+      }
+    } catch {
+      flash(res, `switched to "${name}" but verify failed — re-login if dashboard shows "?"`, 'error');
+    }
   } catch (e) { flash(res, `switch failed: ${e.message}`, 'error'); }
   res.redirect('/dashboard');
 });
