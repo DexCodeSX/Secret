@@ -2,6 +2,18 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.23 — 2026-04-26
+
+**fix: AnythingLLM "Unexpected end of JSON input" on streaming.**
+
+three issues stacked:
+
+1. **anthropic `event:` lines were leaking into the openai SSE stream.** openai SSE format only has `data:` lines — strict parsers (anythingllm, openai-go ssestream — see openai/openai-go#556) treat `event: ...\n\n` as an empty data event and crash with "Unexpected end of JSON input". the pre-fix code was deliberately passing event lines through; that broke any client stricter than curl. drop them on `/v1/chat/completions` (kept on `/responses` since codex requires them).
+
+2. **duplicate `data: [DONE]`.** both the `message_stop` converter and the stream-end handler were appending `[DONE]`, so we sent two. anythingllm parses both, the second is empty payload after the loop terminated, parser throws. now we track whether `[DONE]` was already sent and skip the second.
+
+3. **`chatcmpl-chatcmpl-` doubled id prefix on non-stream.** `streamCollect` returned a body whose `id` was already prefixed; `toOpenAI` prefixed again. fixed to detect existing prefix and pass-through.
+
 ## v2.5.22 — 2026-04-26
 
 **fix /v1/chat/completions returning 400 / silently dropping tools.**

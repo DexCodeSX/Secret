@@ -554,8 +554,13 @@ function toOpenAI(body, model) {
              : body.stop_reason === 'end_turn' ? 'stop'
              : body.stop_reason === 'max_tokens' ? 'length'
              : (body.stop_reason || 'stop');
+  // anthropic gives ids like "msg_01abc..." or our streamCollect already builds "chatcmpl-..."
+  // never prefix twice; never echo the raw msg_ id (some clients dedupe by id and break)
+  let outId = body.id;
+  if (!outId) outId = 'chatcmpl-' + Math.random().toString(36).slice(2,14);
+  else if (!outId.startsWith('chatcmpl-')) outId = 'chatcmpl-' + outId.replace(/^msg_/, '');
   return {
-    id: 'chatcmpl-' + (body.id || Math.random().toString(36).slice(2,14)),
+    id: outId,
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model: model || body.model || 'bonsai',
@@ -901,23 +906,37 @@ function serve(port) {
             }
             res.writeHead(200, { ...corsH, 'content-type':'text/event-stream', 'cache-control':'no-cache', 'connection':'keep-alive' });
             let buf = '';
+            let convStream = makeChunkConverter(model, reqId);
+            let sentDone = false;
             up.on('data', chunk => {
               buf += chunk.toString();
               let lines = buf.split('\n');
               buf = lines.pop();
               for (let line of lines) {
                 line = line.trim();
-                if (!line) { res.write('\n'); continue; }
-                // pass through event: lines
-                if (line.startsWith('event:')) { res.write(line + '\n'); continue; }
-                let converted = convertChunk(line, model, reqId);
-                if (converted) res.write(converted);
+                if (!line) continue;                    // strict openai parsers (anythingllm) crash on empty events
+                if (line.startsWith('event:')) continue; // anthropic-only; openai SSE has no event: lines, drop
+                if (line.startsWith(':')) continue;      // SSE comment line — drop
+                let converted = convStream(line);
+                if (!converted) continue;
+                if (converted.includes('[DONE]')) sentDone = true;
+                res.write(converted);
               }
             });
             up.on('end', () => {
-              if (buf.trim()) { let c = convertChunk(buf.trim(), model, reqId); if (c) res.write(c); }
-              if (!res.writableEnded) { res.write('data: [DONE]\n\n'); res.end(); }
+              if (buf.trim()) {
+                let line = buf.trim();
+                if (!line.startsWith('event:') && !line.startsWith(':')) {
+                  let c = convStream(line);
+                  if (c) { if (c.includes('[DONE]')) sentDone = true; res.write(c); }
+                }
+              }
+              if (!res.writableEnded) {
+                if (!sentDone) res.write('data: [DONE]\n\n');
+                res.end();
+              }
             });
+            up.on('error', () => { if (!res.writableEnded) { if (!sentDone) res.write('data: [DONE]\n\n'); res.end(); } });
             stats.ok++;
             logReq('POST', '/v1/chat/completions', 200, `${$.d}stream${$.r}  ${$.vio}${S.arr}oai${$.r}  ${$.mute}${model}${$.r}`);
             return;
