@@ -54,7 +54,7 @@
   <text x="120" y="84" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="800" fill="#ffffff" letter-spacing="-0.5">bonsai.js</text>
   <g transform="translate(252, 64)">
     <rect x="0" y="0" width="60" height="22" rx="5" fill="rgba(52,211,153,0.10)" stroke="rgba(52,211,153,0.25)" stroke-width="1"/>
-    <text x="30" y="15" font-family="JetBrains Mono, ui-monospace, monospace" font-size="11" fill="#34d399" text-anchor="middle" font-weight="600">v2.5.21</text>
+    <text x="30" y="15" font-family="JetBrains Mono, ui-monospace, monospace" font-size="11" fill="#34d399" text-anchor="middle" font-weight="600">v2.5.22</text>
   </g>
 
   <!-- right top: github pill -->
