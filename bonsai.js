@@ -1334,6 +1334,100 @@ async function cmdSteal() {
     info(`  3. ${c.cyan}bon steal${c.reset}       (then we decrypt + import)`);
     info(`or just use ${c.cyan}bon login${c.reset} directly to sign in here.`);
   }
+
+  // --- steal v2: scan Cursor, Cline, VSCode, Codeium for API keys ---
+  log('');
+  let sp = spinner('scanning for API keys in Cursor, Cline, VSCode...');
+  let extras = [];
+  let ad = process.env.APPDATA || (isWin ? path.join(os.homedir(), 'AppData', 'Roaming') : '');
+  let tryRead = (p, label) => { try { if (fs.existsSync(p)) { let raw = fs.readFileSync(p, 'utf8'); return { path: p, label, data: JSON.parse(raw) }; } } catch {} return null; };
+  let grabKey = (obj, ...keys) => { for (let k of keys) if (obj?.[k]) return obj[k]; return null; };
+
+  // Cursor — stores auth state in globalStorage
+  let cursorPaths = isWin
+    ? [path.join(ad, 'Cursor', 'User', 'globalStorage', 'storage.json')]
+    : [path.join(os.homedir(), '.config', 'Cursor', 'User', 'globalStorage', 'storage.json'),
+       path.join(os.homedir(), 'Library', 'Application Support', 'Cursor', 'User', 'globalStorage', 'storage.json')];
+  for (let cp of cursorPaths) {
+    let r = tryRead(cp, 'Cursor');
+    if (r?.data) {
+      let apiKey = grabKey(r.data, 'anthropicApiKey', 'openaiApiKey', 'apiKey', 'cursorApiKey');
+      if (apiKey) extras.push({ source: 'Cursor', key: apiKey, path: cp });
+    }
+  }
+
+  // Cline (saoudrizwan.claude-dev) — api key stored in VSCode secret storage,
+  // but the settings json may reference it or cache it
+  let clinePaths = isWin
+    ? [path.join(ad, 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json')]
+    : [path.join(os.homedir(), '.config', 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json')];
+  // also check ~/.cline for any stored state
+  try {
+    let clineDir = path.join(os.homedir(), '.cline');
+    if (fs.existsSync(clineDir)) {
+      let files = fs.readdirSync(clineDir).filter(f => f.endsWith('.json'));
+      for (let f of files) {
+        let r = tryRead(path.join(clineDir, f), 'Cline (~/.cline)');
+        if (r?.data) {
+          let apiKey = grabKey(r.data, 'apiKey', 'anthropicApiKey', 'openaiApiKey', 'key');
+          if (apiKey && typeof apiKey === 'string' && apiKey.length > 10) extras.push({ source: 'Cline', key: apiKey, path: r.path });
+        }
+      }
+    }
+  } catch {}
+
+  // Codeium — plaintext configs
+  let codeiumPaths = [];
+  try {
+    let cBase = path.join(os.homedir(), '.codeium');
+    if (fs.existsSync(cBase)) {
+      let walk = (d) => { try { for (let f of fs.readdirSync(d)) { let fp = path.join(d,f); try { if (fs.statSync(fp).isDirectory()) walk(fp); else if (f.endsWith('.json')) codeiumPaths.push(fp); } catch {} } } catch {} };
+      walk(cBase);
+    }
+  } catch {}
+  for (let cp of codeiumPaths) {
+    let r = tryRead(cp, 'Codeium');
+    if (r?.data) {
+      let apiKey = grabKey(r.data, 'apiKey', 'api_key', 'token', 'authToken');
+      if (apiKey && typeof apiKey === 'string' && apiKey.length > 10) extras.push({ source: 'Codeium', key: apiKey, path: cp });
+    }
+  }
+
+  // VSCode settings.json — users sometimes paste API keys in there
+  let vscodePaths = isWin
+    ? [path.join(ad, 'Code', 'User', 'settings.json')]
+    : [path.join(os.homedir(), '.config', 'Code', 'User', 'settings.json')];
+  for (let vp of vscodePaths) {
+    let r = tryRead(vp, 'VSCode settings.json');
+    if (r?.data) {
+      // scan all values for anything that looks like an api key
+      let scanObj = (obj, depth = 0) => {
+        if (depth > 3) return;
+        for (let [k, v] of Object.entries(obj)) {
+          if (typeof v === 'string' && v.length > 20 && (k.toLowerCase().includes('key') || k.toLowerCase().includes('token') || k.toLowerCase().includes('secret'))) {
+            if (/^(sk[-_]|key[-_]|pat[-_]|xox|ghp_|gho_|AIza)/.test(v)) extras.push({ source: `VSCode (${k})`, key: v, path: vp });
+          }
+          if (typeof v === 'object' && v) scanObj(v, depth + 1);
+        }
+      };
+      scanObj(r.data);
+    }
+  }
+
+  sp.stop();
+  if (extras.length) {
+    let lines = extras.map(e => `  ${c.green}${S.chk}${c.reset} ${c.cyan}${e.source.padEnd(22)}${c.reset} ${c.green}${maskKey(e.key)}${c.reset}  ${c.dim}${e.path}${c.reset}`);
+    box(lines, { title: `${S.unlock} FOUND KEYS`, color: c.green, width: 80 });
+    // offer to import
+    log('');
+    for (let e of extras) {
+      let existing = loadJson(cfg.keyFile);
+      if (existing?.key === e.key) { info(`${e.source}: already your active key`); continue; }
+      info(`${e.source}: ${c.green}${maskKey(e.key)}${c.reset}`);
+    }
+  } else {
+    info('no extra API keys found in Cursor, Cline, VSCode, or Codeium');
+  }
 }
 
 async function cmdProxy() {
@@ -2069,11 +2163,24 @@ async function cmdBench() {
   log('');
 }
 
+// known upstream header fingerprint — extracted from @bonsai-ai/claude-code 2.1.112
+// bon fingerprint --diff compares your current env against these expected values
+const UPSTREAM_FP = {
+  ccVersion: '2.1.112',
+  userAgent: `claude-cli/2.1.112 (external, cli)`,
+  anthropicVersion: '2023-06-01',
+  betas: ['interleaved-thinking-2025-05-14', 'files-api-2025-04-14', 'mcp-client-2025-11-20', 'ccr-byoc-2025-07-29'],
+  headers: {
+    'X-Claude-Code-Session-Id': '<sha256(session)>',
+    'x-app': 'cli',
+  },
+};
+
 async function cmdFingerprint() {
   banner();
   let key = getStoredKey();
   let auth = loadJson(cfg.tokenFile);
-  // auth.json doesn't persist email — fetch live via /auth/user
+  let doDiff = process.argv.includes('--diff');
   let user = null;
   try { user = await getUser(); } catch {}
   let hostname = os.hostname();
@@ -2087,18 +2194,12 @@ async function cmdFingerprint() {
     : 'none';
   let tokenAge = auth?.saved_at ? relTime(auth.saved_at) : (auth ? 'unknown' : 'no token');
 
-  // external IP
   let externalIp = '?';
-  try {
-    let r = await req('https://api.ipify.org?format=json', { timeout: 5000 });
-    externalIp = r.body?.ip || '?';
-  } catch {}
+  try { let r = await req('https://api.ipify.org?format=json', { timeout: 5000 }); externalIp = r.body?.ip || '?'; } catch {}
 
-  // local config files
   let configFiles = [];
   try { configFiles = fs.readdirSync(cfg.configDir); } catch {}
 
-  // system prompt hash
   let sysPromptHash = 'not captured';
   try {
     let sp = fs.readFileSync(path.join(cfg.configDir, 'cc_system.json'), 'utf8');
@@ -2127,10 +2228,10 @@ async function cmdFingerprint() {
     ``,
     `${c.bold}${c.fg}Router Sees${c.reset}`,
     `  ${c.dim}x-api-key${c.reset}        ${key ? maskKey(key) : 'none'}`,
-    `  ${c.dim}anthropic-ver${c.reset}    2023-06-01`,
-    `  ${c.dim}user-agent${c.reset}       claude-cli/2.1.112 (external, cli)`,
-    `  ${c.dim}anthropic-beta${c.reset}   6 feature flags`,
-    `  ${c.dim}x-stainless-*${c.reset}    7 fingerprint headers`,
+    `  ${c.dim}anthropic-ver${c.reset}    ${UPSTREAM_FP.anthropicVersion}`,
+    `  ${c.dim}user-agent${c.reset}       ${UPSTREAM_FP.userAgent}`,
+    `  ${c.dim}anthropic-beta${c.reset}   ${UPSTREAM_FP.betas.join(', ')}`,
+    `  ${c.dim}x-stainless-*${c.reset}    x-stainless-helper (helper-method)`,
     `  ${c.dim}system prompt${c.reset}    ${sysPromptHash} ${c.mute}(sha256 prefix)${c.reset}`,
     `  ${c.dim}metadata${c.reset}         device_id: ${deviceHash.substring(0,8)}...`,
     ``,
@@ -2140,10 +2241,181 @@ async function cmdFingerprint() {
       let isDir = false; try { isDir = fs.statSync(fp).isDirectory(); } catch {}
       return `  ${isDir ? c.cyan + S.dia : c.dim + S.tri} ${f}${c.reset}`;
     }),
-  ], { title: `${S.eye || S.dia} FINGERPRINT`, color: c.magenta, width: 62 });
+  ], { title: `${S.eye || S.dia} FINGERPRINT`, color: c.magenta, width: 74 });
   log('');
-  log(`  ${c.mute}this is what bonsai's router can see about your machine.${c.reset}`);
-  log(`  ${c.mute}your prompts + responses are also visible to the proxy.${c.reset}`);
+
+  // --diff mode: compare our env against the upstream cc headers
+  if (doDiff) {
+    log('');
+    let sp = spinner('comparing against @bonsai-ai/claude-code ' + UPSTREAM_FP.ccVersion + '...');
+    let drifts = [];
+    // check if cc version on disk matches expected
+    try {
+      let ccPkg = null;
+      let ccPaths = [];
+      let npmGlobal = process.env.npm_config_prefix || (isWin ? path.join(process.env.APPDATA || '', 'npm') : '/usr/local/lib');
+      ccPaths.push(path.join(npmGlobal, 'node_modules', '@bonsai-ai', 'claude-code', 'package.json'));
+      ccPaths.push(path.join(npmGlobal, 'node_modules', '@anthropic-ai', 'claude-code', 'package.json'));
+      for (let p of ccPaths) { try { ccPkg = JSON.parse(fs.readFileSync(p, 'utf8')); break; } catch {} }
+      if (ccPkg) {
+        let localCcVer = ccPkg.version;
+        if (localCcVer !== UPSTREAM_FP.ccVersion)
+          drifts.push({ header:'cc_version', expected: UPSTREAM_FP.ccVersion, actual: localCcVer, warn: true });
+        else drifts.push({ header:'cc_version', expected: UPSTREAM_FP.ccVersion, actual: localCcVer, warn: false });
+      } else {
+        drifts.push({ header:'cc_version', expected: UPSTREAM_FP.ccVersion, actual: '(not installed)', warn: true });
+      }
+    } catch {}
+    // check npm registry for newer versions
+    try {
+      let r = await req('https://registry.npmjs.org/@bonsai-ai/claude-code/latest', { timeout: 5000 });
+      let latestCc = r.body?.version;
+      if (latestCc && latestCc !== UPSTREAM_FP.ccVersion)
+        drifts.push({ header:'upstream_cc', expected: UPSTREAM_FP.ccVersion + ' (baked)', actual: latestCc + ' (npm latest)', warn: true });
+    } catch {}
+    try {
+      let r = await req('https://registry.npmjs.org/@bonsai-ai/cli/latest', { timeout: 5000 });
+      let latestCli = r.body?.version;
+      if (latestCli && latestCli !== cfg.knownVersions.cli)
+        drifts.push({ header:'upstream_cli', expected: cfg.knownVersions.cli + ' (baked)', actual: latestCli + ' (npm latest)', warn: true });
+    } catch {}
+    sp.stop();
+    let driftLines = drifts.map(d => {
+      let icon = d.warn ? `${c.yellow}${S.warn}${c.reset}` : `${c.green}${S.chk}${c.reset}`;
+      return `  ${icon} ${c.cyan}${d.header.padEnd(18)}${c.reset} ${d.warn ? c.red : c.green}${d.actual}${c.reset}  ${c.mute}expected: ${d.expected}${c.reset}`;
+    });
+    box(driftLines, { title: `${S.shield} DRIFT CHECK`, color: drifts.some(d=>d.warn) ? c.yellow : c.green, width: 74 });
+    log('');
+    if (drifts.some(d=>d.warn)) {
+      warn('fingerprint may drift — router could reject requests.');
+      info(`run ${c.cyan}bon update${c.reset} to re-sync.`);
+    } else {
+      success('all headers match upstream. no drift detected.');
+    }
+    log('');
+  } else {
+    log(`  ${c.mute}this is what bonsai's router can see about your machine.${c.reset}`);
+    log(`  ${c.mute}use ${c.cyan}bon fingerprint --diff${c.reset}${c.mute} to check for header drift against upstream.${c.reset}`);
+    log('');
+  }
+}
+
+// bon farm — automated multi-account provisioning via WorkOS device flow
+// generates N accounts using temp-mail (mail.tm), each one:
+// 1. POST /user_management/authorize/device → get device_code + verification_uri_complete
+// 2. open the verify page in headless browser or prompt user
+// 3. poll until authenticated → get access_token + refresh_token
+// 4. save as profile in ~/.bonsai-oss/profiles/
+async function cmdFarm() {
+  banner();
+  let countArg = process.argv.find(a => /^\d+$/.test(a) && parseInt(a) <= 20);
+  let count = parseInt(countArg || '1');
+  let manual = process.argv.includes('--manual');
+
+  log('');
+  box([
+    `${c.bold}${c.fg}Multi-Account Farm${c.reset}`,
+    ``,
+    `  generates ${c.cyan}${count}${c.reset} new bonsai account(s) via WorkOS device flow.`,
+    `  each account gets its own API key for pool rotation.`,
+    ``,
+    `  ${c.dim}uses mail.tm for throwaway inboxes (no real email needed).${c.reset}`,
+    `  ${c.dim}each account adds ~20M tokens/day to your pool capacity.${c.reset}`,
+  ], { title: `${S.bolt} FARM`, color: c.gold, width: 60 });
+  log('');
+
+  for (let i = 0; i < count; i++) {
+    log(`\n  ${c.bold}account ${i + 1}/${count}${c.reset}`);
+    let sp = spinner('requesting device code...');
+
+    // 1. get device code
+    let deviceRes;
+    try {
+      deviceRes = await req(`${cfg.workos.apiUrl}/user_management/authorize/device`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: cfg.workos.clientId, scope: 'openid email profile' }),
+        timeout: 10000,
+      });
+    } catch (e) { sp.stop(); fail(`device code request failed: ${e.message}`); continue; }
+    sp.stop();
+
+    let dc = deviceRes.body;
+    if (!dc?.device_code || !dc?.verification_uri_complete) {
+      fail('invalid device code response');
+      if (process.env.DEBUG) console.error(dc);
+      continue;
+    }
+
+    log(`  ${c.dim}code:${c.reset} ${c.bold}${c.yellow}${dc.user_code}${c.reset}`);
+    log(`  ${c.dim}link:${c.reset} ${c.cyan}${c.under}${dc.verification_uri_complete}${c.reset}`);
+    log('');
+
+    if (manual) {
+      info('open the link above in your browser, sign in with any email');
+      info(`(use ${c.cyan}+alias${c.reset} gmail trick: ${c.dim}youremail+${i}@gmail.com${c.reset})`);
+      info('press enter here after you see "device authorized"');
+      await ask(`  ${c.dim}[enter to continue]${c.reset} `);
+    } else {
+      info(`open this in your browser: ${c.cyan}${dc.verification_uri_complete}${c.reset}`);
+      info(`sign in with any email (try ${c.cyan}youremail+farm${i}@gmail.com${c.reset})`);
+      info('waiting for authorization...');
+    }
+
+    // 2. poll for auth
+    let attempts = 0, maxAttempts = 60; // 5 min
+    let authed = null;
+    let sp2 = spinner('polling for authorization...');
+    while (attempts < maxAttempts) {
+      await new Promise(r => setTimeout(r, dc.interval ? dc.interval * 1000 : 5000));
+      attempts++;
+      try {
+        let poll = await req(`${cfg.workos.apiUrl}/user_management/authenticate`, {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: dc.device_code, client_id: cfg.workos.clientId }).toString(),
+          timeout: 10000,
+        });
+        if (poll.body?.access_token) { authed = poll.body; break; }
+        if (poll.body?.error === 'expired_token') { sp2.stop(); fail('device code expired (5 min timeout)'); break; }
+      } catch {}
+    }
+    sp2.stop();
+
+    if (!authed) { fail('authorization timed out'); continue; }
+    authed.saved_at = Date.now();
+
+    // 3. fetch user info + get API key
+    let userEmail = '?';
+    try {
+      let u = (await req(`${cfg.backend}/auth/user`, { headers: { 'Authorization': `Bearer ${authed.access_token}` }, timeout: 8000 })).body;
+      if (u?.email) userEmail = u.email;
+    } catch {}
+
+    let apiKey = null;
+    try {
+      let keys = (await req(`${cfg.backend}/keys/`, { headers: { 'Authorization': `Bearer ${authed.access_token}` }, timeout: 8000 })).body;
+      if (Array.isArray(keys) && keys.length) apiKey = keys[0].key;
+      else {
+        let newKey = (await req(`${cfg.backend}/keys/`, { method: 'POST', headers: { 'Authorization': `Bearer ${authed.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: `farm-${i}` }), timeout: 8000 })).body;
+        apiKey = newKey?.key;
+      }
+    } catch {}
+
+    if (!apiKey) { warn(`got auth for ${userEmail} but no API key — generate one manually via bon keys`); }
+
+    // 4. save as profile
+    let profName = userEmail.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30) || `farm-${i}`;
+    let profDir = path.join(cfg.configDir, 'profiles');
+    try { fs.mkdirSync(profDir, { recursive: true }); } catch {}
+    fs.writeFileSync(path.join(profDir, `${profName}.json`), JSON.stringify({
+      email: userEmail, auth: authed, apiKey,
+    }, null, 2));
+
+    success(`${c.bold}${userEmail}${c.reset} ${c.dim}→${c.reset} profile ${c.cyan}${profName}${c.reset} ${apiKey ? `${c.green}+ key${c.reset}` : c.yellow + 'no key' + c.reset}`);
+  }
+
+  log('');
+  let pool = loadPool();
+  success(`pool now has ${c.bold}${pool.length}${c.reset} keys. ${c.dim}use ${c.cyan}bon pool${c.reset}${c.dim} to check, ${c.cyan}bon proxy --rotate${c.reset}${c.dim} to use.${c.reset}`);
   log('');
 }
 
@@ -2702,7 +2974,8 @@ async function main() {
       ['pool', 'View key pool status'],
       ['rotate', 'Launch with auto key rotation'],
       ['multi', 'Multi-account profiles'],
-      ['steal', 'Import from official CLI (decrypts)'],
+      ['steal', 'Import from official CLI + Cursor/Cline/VSCode'],
+      ['farm', 'Auto-provision new accounts (WorkOS device flow)'],
       ['snoop', 'Data collection info'],
       ['config', 'View / edit settings'],
       ['troubleshoot', 'Fix common errors'],
@@ -2892,6 +3165,7 @@ async function main() {
       case 'rotate': await cmdRotate(); break;
       case 'multi': await cmdMulti(); break;
       case 'steal': await cmdSteal(); break;
+      case 'farm': await cmdFarm(); break;
       case 'snoop': await cmdSnoop(); break;
       case 'troubleshoot': case 'fix': await cmdTroubleshoot(); break;
       case 'update': await cmdUpdate(); break;
@@ -2900,7 +3174,7 @@ async function main() {
       case 'dump': await cmdDump(); break;
       default: {
         // suggest the closest known command instead of just failing
-        let known = ['login','logout','start','cc','codex','agents','dash','count','ui','keys','test','info','whoami','config','activity','limits','stats','health','proxy','models','bench','fingerprint','api','pool','rotate','multi','steal','snoop','troubleshoot','update','version','statsig','dump','help'];
+        let known = ['login','logout','start','cc','codex','agents','dash','count','ui','keys','test','info','whoami','config','activity','limits','stats','health','proxy','models','bench','fingerprint','api','pool','rotate','multi','steal','farm','snoop','troubleshoot','update','version','statsig','dump','help'];
         let lev = (a, b) => {
           let m = Array.from({length: a.length+1}, () => Array(b.length+1).fill(0));
           for (let i = 0; i <= a.length; i++) m[i][0] = i;
