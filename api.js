@@ -723,11 +723,13 @@ function serve(port) {
         stats.reqs++;
         // return known models from Statsig dump + real routing
         let models = [
-          { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'anthropic', context: '1M', note: 'default' },
+          { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', provider: 'anthropic', context: '1M', note: 'latest, 1M context, reasoning high' },
+          { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', provider: 'anthropic', context: '1M' },
           { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'anthropic', context: '200K' },
           { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', provider: 'anthropic', context: '200K' },
           { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', provider: 'anthropic', context: '200K' },
           { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', provider: 'anthropic', context: '200K' },
+          { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', provider: 'anthropic', context: '200K' },
           { id: 'glm-4.7', name: 'GLM-4.7', provider: 'zhipu', context: '128K' },
           { id: 'bonsai', name: 'Bonsai Default', provider: 'openrouter', note: 'routes to best available' },
           { id: 'stealth', name: 'Stealth', provider: 'openrouter', note: 'hidden model name' },
