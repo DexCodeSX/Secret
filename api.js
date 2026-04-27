@@ -398,18 +398,110 @@ function convertResponsesChunk(line, model, respId) {
 }
 
 // openai chat body -> anthropic messages body
+// real conversion: handle content arrays (text/image_url), tool_calls,
+// tool messages → user with tool_result block, tools, response_format
 function toAnthropic(body) {
-  let msgs = [], sys;
+  let msgs = [], sys = '';
+
+  // openai content can be string OR array of {type, text, image_url}
+  // anthropic wants: string OR array of {type:"text",text}/{type:"image",source}/...
+  let convOaiContent = (c) => {
+    if (typeof c === 'string') return c;
+    if (!Array.isArray(c)) return String(c ?? '');
+    let blocks = [];
+    for (let part of c) {
+      if (!part) continue;
+      if (typeof part === 'string') { blocks.push({ type:'text', text: part }); continue; }
+      if (part.type === 'text' || part.text) blocks.push({ type:'text', text: part.text || '' });
+      else if (part.type === 'image_url') {
+        let url = typeof part.image_url === 'string' ? part.image_url : part.image_url?.url;
+        if (!url) continue;
+        let m = /^data:([^;]+);base64,(.+)$/.exec(url);
+        if (m) blocks.push({ type:'image', source:{ type:'base64', media_type:m[1], data:m[2] } });
+        else  blocks.push({ type:'image', source:{ type:'url', url } });
+      } else if (part.type === 'input_audio' || part.type === 'audio') {
+        // anthropic doesn't accept audio yet — drop with a marker
+        blocks.push({ type:'text', text:'[audio omitted]' });
+      } else if (part.text) {
+        blocks.push({ type:'text', text: part.text });
+      }
+    }
+    if (!blocks.length) blocks.push({ type:'text', text:'' });
+    return blocks;
+  };
+
   for (let m of (body.messages || [])) {
-    if (m.role === 'system') {
-      sys = (sys || '') + (typeof m.content === 'string' ? m.content : JSON.stringify(m.content));
+    if (!m) continue;
+
+    if (m.role === 'system' || m.role === 'developer') {
+      // collapse all system/developer messages into single anthropic system prompt
+      let s = typeof m.content === 'string' ? m.content
+            : Array.isArray(m.content) ? m.content.map(p => p?.text || '').join('')
+            : String(m.content ?? '');
+      sys += (sys ? '\n\n' : '') + s;
       continue;
     }
-    msgs.push({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-    });
+
+    if (m.role === 'tool' || m.role === 'function') {
+      // openai tool result -> anthropic user msg with tool_result block
+      let content = typeof m.content === 'string' ? m.content
+                  : Array.isArray(m.content) ? m.content.map(p=>p?.text||'').join('')
+                  : JSON.stringify(m.content ?? '');
+      msgs.push({
+        role:'user',
+        content:[{ type:'tool_result', tool_use_id: m.tool_call_id || m.name || 'unknown', content }],
+      });
+      continue;
+    }
+
+    if (m.role === 'assistant') {
+      let blocks = [];
+      // text part
+      if (m.content) {
+        let conv = convOaiContent(m.content);
+        if (typeof conv === 'string') { if (conv.trim()) blocks.push({ type:'text', text: conv }); }
+        else for (let b of conv) if (b.type === 'text' && b.text) blocks.push(b);
+      }
+      // tool_calls part
+      if (Array.isArray(m.tool_calls)) {
+        for (let tc of m.tool_calls) {
+          if (tc?.type !== 'function' && tc?.type !== undefined) continue;
+          let args = tc.function?.arguments;
+          if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = { _raw: args }; } }
+          blocks.push({
+            type:'tool_use',
+            id: tc.id || ('call_' + Math.random().toString(36).slice(2,10)),
+            name: tc.function?.name || 'unknown',
+            input: args || {},
+          });
+        }
+      }
+      if (!blocks.length) blocks.push({ type:'text', text:'' });
+      msgs.push({ role:'assistant', content: blocks });
+      continue;
+    }
+
+    // user / default
+    msgs.push({ role:'user', content: convOaiContent(m.content) });
   }
+
+  // anthropic refuses empty messages array — inject a stub if all we got was system
+  if (!msgs.length) msgs.push({ role:'user', content:'' });
+
+  // collapse consecutive same-role messages (anthropic complains about role swap rules)
+  let collapsed = [];
+  for (let m of msgs) {
+    let last = collapsed[collapsed.length - 1];
+    if (last && last.role === m.role) {
+      // merge into last by concatenating content
+      let toBlocks = (c) => typeof c === 'string' ? [{ type:'text', text:c }] : (Array.isArray(c) ? c : [c]);
+      last.content = [...toBlocks(last.content), ...toBlocks(m.content)];
+    } else {
+      collapsed.push(m);
+    }
+  }
+  msgs = collapsed;
+
   let out = {
     model: mapModel(body.model || 'bonsai'),
     max_tokens: body.max_tokens || body.max_completion_tokens || 8192,
@@ -420,22 +512,54 @@ function toAnthropic(body) {
   if (body.temperature != null) out.temperature = body.temperature;
   if (body.top_p != null) out.top_p = body.top_p;
   if (body.stop) out.stop_sequences = Array.isArray(body.stop) ? body.stop : [body.stop];
+
+  // tools: openai → anthropic
+  if (Array.isArray(body.tools) && body.tools.length) {
+    out.tools = body.tools.map(t => {
+      let fn = t.function || t;
+      return {
+        name: fn.name,
+        description: fn.description || '',
+        input_schema: fn.parameters || { type:'object', properties:{} },
+      };
+    }).filter(t => t.name);
+  }
+  if (body.tool_choice) {
+    if (body.tool_choice === 'auto') out.tool_choice = { type:'auto' };
+    else if (body.tool_choice === 'none') { /* anthropic has no 'none' — drop */ }
+    else if (body.tool_choice === 'required') out.tool_choice = { type:'any' };
+    else if (body.tool_choice?.type === 'function') out.tool_choice = { type:'tool', name: body.tool_choice.function?.name };
+  }
+
   return out;
 }
 
 // anthropic response -> openai response
 function toOpenAI(body, model) {
-  let text = (body.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  let text = '';
+  let toolCalls = [];
+  for (let b of (body.content || [])) {
+    if (b.type === 'text') text += b.text;
+    else if (b.type === 'tool_use') {
+      toolCalls.push({
+        id: b.id || ('call_' + Math.random().toString(36).slice(2,10)),
+        type: 'function',
+        function: { name: b.name, arguments: JSON.stringify(b.input || {}) },
+      });
+    }
+  }
+  let msg = { role:'assistant', content: text || null };
+  if (toolCalls.length) msg.tool_calls = toolCalls;
+  let finish = body.stop_reason === 'tool_use' ? 'tool_calls'
+             : body.stop_reason === 'end_turn' ? 'stop'
+             : body.stop_reason === 'max_tokens' ? 'length'
+             : (body.stop_reason || 'stop');
   return {
     id: 'chatcmpl-' + (body.id || Math.random().toString(36).slice(2,14)),
     object: 'chat.completion',
     created: Math.floor(Date.now() / 1000),
     model: model || body.model || 'bonsai',
-    choices: [{
-      index: 0,
-      message: { role: 'assistant', content: text },
-      finish_reason: body.stop_reason === 'end_turn' ? 'stop' : (body.stop_reason || 'stop'),
-    }],
+    choices: [{ index: 0, message: msg, finish_reason: finish }],
     usage: {
       prompt_tokens: body.usage?.input_tokens || 0,
       completion_tokens: body.usage?.output_tokens || 0,
@@ -445,26 +569,58 @@ function toOpenAI(body, model) {
 }
 
 // streaming: anthropic SSE chunk -> openai SSE chunk
-function convertChunk(line, model, id) {
-  if (!line.startsWith('data: ')) return null;
-  let raw = line.slice(6).trim();
-  if (raw === '[DONE]') return 'data: [DONE]\n\n';
-  try {
-    let evt = JSON.parse(raw);
-    if (evt.type === 'content_block_delta' && evt.delta?.text) {
-      return 'data: ' + JSON.stringify({
-        id, object: 'chat.completion.chunk', created: Math.floor(Date.now()/1000), model,
-        choices: [{ index: 0, delta: { content: evt.delta.text }, finish_reason: null }],
+// per-stream state for tool_use blocks (anthropic streams tool args as input_json_delta)
+function makeChunkConverter(model, id) {
+  let toolBlocks = {}; // index -> {id, name, argBuf}
+  let stopReason = 'stop';
+  return (line) => {
+    if (!line.startsWith('data: ')) return null;
+    let raw = line.slice(6).trim();
+    if (raw === '[DONE]') return 'data: [DONE]\n\n';
+    try {
+      let evt = JSON.parse(raw);
+      let mk = (delta) => 'data: ' + JSON.stringify({
+        id, object:'chat.completion.chunk', created: Math.floor(Date.now()/1000), model,
+        choices:[{ index:0, delta, finish_reason: null }],
       }) + '\n\n';
-    }
-    if (evt.type === 'message_stop') {
-      return 'data: ' + JSON.stringify({
-        id, object: 'chat.completion.chunk', created: Math.floor(Date.now()/1000), model,
-        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-      }) + '\n\ndata: [DONE]\n\n';
-    }
-  } catch {}
-  return null;
+
+      if (evt.type === 'content_block_start' && evt.content_block?.type === 'tool_use') {
+        toolBlocks[evt.index] = { id: evt.content_block.id, name: evt.content_block.name, idx: Object.keys(toolBlocks).length };
+        return mk({ tool_calls:[{ index: toolBlocks[evt.index].idx, id: evt.content_block.id, type:'function', function:{ name: evt.content_block.name, arguments:'' } }] });
+      }
+      if (evt.type === 'content_block_delta') {
+        if (evt.delta?.type === 'text_delta' && evt.delta.text) return mk({ content: evt.delta.text });
+        if (evt.delta?.type === 'input_json_delta' && evt.delta.partial_json != null) {
+          let tb = toolBlocks[evt.index];
+          if (!tb) return null;
+          return mk({ tool_calls:[{ index: tb.idx, function:{ arguments: evt.delta.partial_json } }] });
+        }
+        // legacy: top-level text on delta
+        if (evt.delta?.text) return mk({ content: evt.delta.text });
+      }
+      if (evt.type === 'message_delta' && evt.delta?.stop_reason) {
+        stopReason = evt.delta.stop_reason === 'tool_use' ? 'tool_calls'
+                   : evt.delta.stop_reason === 'end_turn' ? 'stop'
+                   : evt.delta.stop_reason === 'max_tokens' ? 'length'
+                   : evt.delta.stop_reason;
+      }
+      if (evt.type === 'message_stop') {
+        return 'data: ' + JSON.stringify({
+          id, object:'chat.completion.chunk', created: Math.floor(Date.now()/1000), model,
+          choices:[{ index:0, delta:{}, finish_reason: stopReason }],
+        }) + '\n\ndata: [DONE]\n\n';
+      }
+    } catch {}
+    return null;
+  };
+}
+// kept as backward-compat for any old caller — picks default 'stop' finish reason
+function convertChunk(line, model, id) {
+  if (!convertChunk._cache) convertChunk._cache = new Map();
+  let key = `${model}:${id}`;
+  let conv = convertChunk._cache.get(key);
+  if (!conv) { conv = makeChunkConverter(model, id); convertChunk._cache.set(key, conv); }
+  return conv(line);
 }
 
 // -- state --

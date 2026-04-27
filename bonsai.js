@@ -1348,6 +1348,7 @@ async function cmdPool() {
   let pool = loadPool();
   let state = loadPoolState();
   let today = new Date().toISOString().substring(0, 10);
+  let fast = process.argv.includes('--fast') || process.argv.includes('-f');
 
   if (!pool.length) {
     fail("no keys in pool");
@@ -1355,15 +1356,66 @@ async function cmdPool() {
     return;
   }
 
+  // unless --fast, hit /billing/activity for each profile to get *real* limit status
+  // (api.js can mark a key fresh if it never sent traffic through it, but the bonsai
+  // backend may have already burned the quota via direct-key usage. this fixes the
+  // "fake fresh" bug where bon pool said FRESH while bon dash showed actually limited.)
+  let liveLimits = {}; // key -> { hit, used, daily, percent }
+  if (!fast) {
+    let dir = path.join(cfg.configDir, 'profiles');
+    let sp = spinner('checking each account against the bonsai backend...');
+    let probes = pool.map(async (k) => {
+      try {
+        // need the matching profile's auth (not the active one)
+        let profFile = path.join(dir, `${k.name}.json`);
+        let prof = null;
+        if (fs.existsSync(profFile)) { try { prof = JSON.parse(fs.readFileSync(profFile,'utf8')); } catch {} }
+        let token = prof?.auth?.access_token;
+        if (!token && k.email === '(active)') token = (await ensureToken().catch(()=>null));
+        if (!token) return;
+        // try refresh if expired
+        if (prof?.auth?.refresh_token) {
+          let rr = await req(`${cfg.workos.apiUrl}/user_management/authenticate`, {
+            method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({ grant_type:'refresh_token', refresh_token: prof.auth.refresh_token, client_id: cfg.workos.clientId }).toString(),
+            timeout: 8000,
+          }).catch(()=>null);
+          if (rr?.body?.access_token) token = rr.body.access_token;
+        }
+        let r = await req(`${cfg.backend}/billing/activity?page=1&page_size=1`, { headers:{'Authorization':`Bearer ${token}`}, timeout: 8000 });
+        let v = r?.body;
+        if (!v) return;
+        // backend usually returns { current_usage_today, total_tokens_daily_limit_in_thousand, limit_reached }
+        let used = v.current_usage_today ?? v.usage_today ?? v.tokens_today ?? null;
+        let cap = v.total_tokens_daily_limit_in_thousand ? v.total_tokens_daily_limit_in_thousand * 1000 : (v.daily_limit ?? null);
+        let hit = v.limit_reached === true || (cap && used != null && used >= cap);
+        liveLimits[k.key] = { hit, used, cap };
+        // sync to pool-state so api.js + dash agree
+        if (hit && state.limited[k.key] !== today) {
+          state.limited[k.key] = today;
+        }
+      } catch {}
+    });
+    await Promise.all(probes);
+    sp.stop();
+    try { fs.writeFileSync(poolFile(), JSON.stringify(state, null, 2)); } catch {}
+  }
+
   let lines = pool.map((k, i) => {
-    let lim = state.limited[k.key] === today;
+    let live = liveLimits[k.key];
+    let lim = state.limited[k.key] === today || live?.hit;
     let active = i === state.index;
     let status = lim ? `${c.red}${S.cross} LIMITED${c.reset}` : `${c.green}${S.chk} FRESH${c.reset}`;
     let arrow = active ? `${c.green}${S.arr}${c.reset}` : ' ';
-    return `${arrow} ${c.cyan}${k.name.padEnd(14)}${c.reset} ${c.dim}${maskKey(k.key)}${c.reset}  ${k.email.padEnd(20)}  ${status}`;
+    let pct = '';
+    if (live?.cap && live?.used != null) {
+      let p = Math.min(999, Math.round(live.used / live.cap * 100));
+      pct = `  ${c.dim}${p}%${c.reset}`;
+    }
+    return `${arrow} ${c.cyan}${k.name.padEnd(14)}${c.reset} ${c.dim}${maskKey(k.key)}${c.reset}  ${k.email.padEnd(20)}  ${status}${pct}`;
   });
 
-  let fresh = pool.filter(k => state.limited[k.key] !== today).length;
+  let fresh = pool.filter(k => !(state.limited[k.key] === today || liveLimits[k.key]?.hit)).length;
   let limited = pool.length - fresh;
 
   box([

@@ -2,6 +2,39 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.22 — 2026-04-26
+
+**fix /v1/chat/completions returning 400 / silently dropping tools.**
+
+`toAnthropic` was naive — it `JSON.stringify`'d any non-string content and never passed `tools`/`tool_calls`/`tool_choice` through. so any client that sent:
+- multi-part content arrays (cline, cursor, vscode-anthropic) → got mangled "[{\"type\":\"text\"...}]" garbage instead of clean blocks
+- `tool_calls` from a previous assistant turn → assistant.content became "[]" stringified
+- `tools` array → silently dropped, model never had access to the tool schema
+- `role:"tool"` results → posted as user message with stringified payload, anthropic rejected with 400
+
+rewrote it as a real openai → anthropic converter:
+- `string | array` content properly decomposed; image_url (data: + http(s)) → anthropic image block
+- `role:"tool"` → user message with `{type:"tool_result", tool_use_id, content}`
+- assistant `tool_calls` → `{type:"tool_use", id, name, input}` blocks alongside text
+- `tools` → anthropic schema (`name`, `description`, `input_schema`)
+- `tool_choice`: `auto`→`{type:"auto"}`, `required`→`{type:"any"}`, function→`{type:"tool",name}`
+- consecutive same-role messages collapsed (anthropic complains otherwise)
+- empty messages array gets a stub user msg so requests don't hard-fail
+
+response side (`toOpenAI`) and the streaming converter both gained tool_call support, so tool_calls round-trip end-to-end. `stop_reason: tool_use` maps to `finish_reason: tool_calls`, `max_tokens` → `length`.
+
+**fix `bon pool` showing FRESH while `bon dash` shows LIMITED.**
+
+local pool-state.json only flips when api.js sees a 400/429 from the router. but a key can be account-quota-exhausted at the bonsai backend without ever sending a request through api.js (e.g. you used `bon cc` directly which talks to the router, not via api.js).
+
+`bon pool` now hits `/billing/activity` for each profile in the pool and checks `current_usage_today` vs `total_tokens_daily_limit_in_thousand`. results are written back to pool-state.json so api.js and `bon dash` see the same truth on the next read. shows percent column too.
+
+`bon pool --fast` skips the live check for the old instant view.
+
+**typo passthrough for `bon mutli`/`bon -verison`.**
+
+already fixed in v2.5.20+ — confirmed working. dropdown reaching the "Switch to:" menu and waiting for input is correct behavior, not a bug.
+
 ## v2.5.21 — 2026-04-25
 
 **fix: `bon update` reporting "(latest)" when newer version was actually published.**
