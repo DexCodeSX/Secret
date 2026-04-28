@@ -2,6 +2,29 @@
 
 all dates UTC. format: keep it simple.
 
+## v2.5.26 — 2026-04-26
+
+**new: bonsai feedback bypass — auto-strips [Bonsai] feedback prompts from claude-code sessions.**
+
+the bonsai router injects AskUserQuestion tool_use blocks at end of tasks ("What went well?", "How did the model do?"). these block the session until you manually answer.
+
+`bon cc` / `bon start` now route through a transparent local proxy (port 14189) that:
+- detects `content_block_start` with `name: "AskUserQuestion"` in the SSE stream
+- suppresses the entire block (start + deltas + stop)
+- rewrites `message_delta.stop_reason` from `"tool_use"` → `"end_turn"` so cc doesn't hang waiting for a tool_result
+
+on by default. pass `--with-feedback` to keep the prompts.
+
+**new: `bon patch` — apply bonsai's AskUserQuestion schema bypass to any claude-code JS bundle.**
+
+reverse-engineered the exact 1-byte change bonsai makes to `@bonsai-ai/claude-code`: `.min(2)` → `.min(0)` on the Zod options schema. this allows 0-option questions (auto-resolvable confirmation dialogs).
+
+- scans npm global, npm cache (_npx), and local node_modules
+- `--revert` / `--dry-run` / `--verbose` / `--file=/path`
+- alias: `bon bypass`
+
+**removed: `bon farm`** — account provisioning automation removed.
+
 ## v2.5.23 — 2026-04-26
 
 **fix: AnythingLLM "Unexpected end of JSON input" on streaming.**

@@ -13,7 +13,7 @@ import https from 'https';
 import http from 'http';
 import crypto from 'crypto';
 
-const VERSION = "2.5.25";
+const VERSION = "2.5.26";
 const REPO = "DexCodeSX/bons";
 const REPO_RAW = `https://raw.githubusercontent.com/${REPO}/main`;
 const isWin = process.platform === 'win32';
@@ -89,6 +89,7 @@ const S = {
   sm: '\u00b7', pillL: '\u2590', pillR: '\u258c', arrH: '\u279c',
   spin: ['\u280b','\u2819','\u2839','\u2838','\u283c','\u2834','\u2826','\u2827','\u2807','\u280f'],
   spinPulse: ['\u2802','\u2806','\u2807','\u280f','\u281f','\u283f','\u287f','\u28ff','\u287f','\u283f','\u281f','\u280f','\u2807','\u2806','\u2802','\u2800'],
+  skip: '\u2192',
 };
 
 function stripAnsi(s) { return s.replace(/\x1b\[[0-9;]*m/g, ''); }
@@ -606,16 +607,156 @@ function decryptBonsaiConfig(filePath) {
 // -- launchers --
 function getRouter() { return getSetting('router') || cfg.router; }
 
+function startBypassProxy(router) {
+  // transparent proxy that strips Bonsai feedback from SSE streams.
+  // the router injects AskUserQuestion tool_use blocks with "[Bonsai]" in question text.
+  // we buffer the entire AskUserQuestion block, check if input contains "Bonsai",
+  // and if so drop it + rewrite stop_reason so cc doesn't hang.
+  // legitimate AskUserQuestion (from the model itself) passes through untouched.
+  let url = new URL(router);
+  let mod = url.protocol === 'https:' ? https : http;
+  let port = 14189;
+
+  let srv = http.createServer((cReq, cRes) => {
+    let bodyChunks = [];
+    cReq.on('data', ch => bodyChunks.push(ch));
+    cReq.on('end', () => {
+      let body = Buffer.concat(bodyChunks);
+      let headers = { ...cReq.headers, host: url.host };
+      delete headers['content-length'];
+      if (body.length) headers['content-length'] = body.length;
+
+      let pReq = mod.request({
+        hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: cReq.url, method: cReq.method, headers, rejectUnauthorized: false,
+      }, pRes => {
+        let ct = pRes.headers['content-type'] || '';
+        if (!ct.includes('text/event-stream')) {
+          cRes.writeHead(pRes.statusCode, pRes.headers);
+          pRes.pipe(cRes);
+          return;
+        }
+
+        cRes.writeHead(pRes.statusCode, pRes.headers);
+        let buf = '';
+        // per-block state: when we see AskUserQuestion, buffer events until block_stop
+        // then check if the accumulated input JSON contains "Bonsai" — if yes, drop all; if no, flush all
+        let askBuf = null; // { idx, lines: [] } — buffering an AskUserQuestion block
+        let inputJson = ''; // accumulated input_json_delta text for the buffered block
+        let didSuppress = false;
+        let pendingEvent = '';
+
+        function flushAskBuf() {
+          if (!askBuf) return;
+          // check if this is a bonsai feedback question
+          let isBonsai = /bonsai/i.test(inputJson);
+          if (isBonsai) {
+            didSuppress = true;
+          } else {
+            for (let l of askBuf.lines) cRes.write(l + '\n');
+          }
+          askBuf = null;
+          inputJson = '';
+        }
+
+        pRes.on('data', chunk => {
+          buf += chunk.toString();
+          let lines = buf.split('\n');
+          buf = lines.pop();
+
+          for (let line of lines) {
+            // buffer event: lines
+            if (line.startsWith('event:')) {
+              if (askBuf) { askBuf.lines.push(line); continue; }
+              pendingEvent = line;
+              continue;
+            }
+
+            if (line.startsWith('data: ')) {
+              let raw = line.slice(6).trim();
+              if (raw && raw !== '[DONE]') {
+                try {
+                  let ev = JSON.parse(raw);
+
+                  // start buffering AskUserQuestion block
+                  if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use'
+                      && ev.content_block?.name === 'AskUserQuestion') {
+                    askBuf = { idx: ev.index, lines: [] };
+                    inputJson = '';
+                    if (pendingEvent) { askBuf.lines.push(pendingEvent); pendingEvent = ''; }
+                    askBuf.lines.push(line);
+                    continue;
+                  }
+
+                  // if we're buffering, collect events for this block
+                  if (askBuf && typeof ev.index === 'number' && ev.index === askBuf.idx) {
+                    if (pendingEvent) { askBuf.lines.push(pendingEvent); pendingEvent = ''; }
+                    askBuf.lines.push(line);
+                    if (ev.type === 'content_block_delta' && ev.delta?.partial_json) {
+                      inputJson += ev.delta.partial_json;
+                    }
+                    if (ev.type === 'content_block_delta' && ev.delta?.type === 'input_json_delta') {
+                      inputJson += ev.delta.partial_json || '';
+                    }
+                    if (ev.type === 'content_block_stop') flushAskBuf();
+                    continue;
+                  }
+
+                  // rewrite stop_reason if we suppressed a tool_use
+                  if (didSuppress && ev.type === 'message_delta' && ev.delta?.stop_reason === 'tool_use') {
+                    ev.delta.stop_reason = 'end_turn';
+                    line = 'data: ' + JSON.stringify(ev);
+                  }
+                } catch {}
+              }
+            }
+
+            // pass through
+            if (pendingEvent) { cRes.write(pendingEvent + '\n'); pendingEvent = ''; }
+            cRes.write(line + '\n');
+          }
+        });
+
+        pRes.on('end', () => {
+          if (askBuf) flushAskBuf(); // flush any incomplete buffer
+          if (buf) cRes.write(buf);
+          cRes.end();
+        });
+        pRes.on('error', () => cRes.end());
+      });
+      pReq.on('error', () => { cRes.writeHead(502); cRes.end('proxy error'); });
+      if (body.length) pReq.write(body);
+      pReq.end();
+    });
+  });
+
+  srv.listen(port, '127.0.0.1');
+  srv.on('error', e => {
+    if (e.code === 'EADDRINUSE') { port++; srv.listen(port, '127.0.0.1'); }
+  });
+  return { srv, getPort: () => port };
+}
+
 function launchClaude(apiKey, extra = []) {
   let router = getRouter();
   let pkg = '@bonsai-ai/claude-code@latest';
+  let keepFeedback = process.argv.includes('--with-feedback');
+  let base = router;
+
+  if (!keepFeedback) {
+    let proxy = startBypassProxy(router);
+    base = `http://127.0.0.1:${proxy.getPort()}`;
+    info(`bypass: ${c.green}stripping [Bonsai] feedback prompts${c.reset}`);
+    process.on('exit', () => { try { proxy.srv.close(); } catch {} });
+  }
+
   info(`package: ${c.cyan}${pkg}${c.reset}`);
-  info(`router: ${c.cyan}${router}${c.reset}`);
+  info(`router: ${c.cyan}${router}${c.reset}${!keepFeedback ? ` ${c.dim}via bypass proxy${c.reset}` : ''}`);
   info(`key: ${c.dim}${maskKey(apiKey)}${c.reset}`);
   if (extra.length) info(`flags: ${c.dim}${extra.join(' ')}${c.reset}`);
   log('');
 
-  let env = { ...process.env, ANTHROPIC_BASE_URL: router, ANTHROPIC_AUTH_TOKEN: apiKey };
+  let env = { ...process.env, ANTHROPIC_BASE_URL: base, ANTHROPIC_AUTH_TOKEN: apiKey };
   let cmd = ['npx', '--yes', pkg, ...extra].join(' ');
   let child = spawn(cmd, [], { stdio: 'inherit', env, shell: true, windowsHide: false });
   child.on('exit', code => process.exit(code || 0));
@@ -2300,125 +2441,6 @@ async function cmdFingerprint() {
   }
 }
 
-// bon farm — automated multi-account provisioning via WorkOS device flow
-// generates N accounts using temp-mail (mail.tm), each one:
-// 1. POST /user_management/authorize/device → get device_code + verification_uri_complete
-// 2. open the verify page in headless browser or prompt user
-// 3. poll until authenticated → get access_token + refresh_token
-// 4. save as profile in ~/.bonsai-oss/profiles/
-async function cmdFarm() {
-  banner();
-  let countArg = process.argv.find(a => /^\d+$/.test(a) && parseInt(a) <= 20);
-  let count = parseInt(countArg || '1');
-  let manual = process.argv.includes('--manual');
-
-  log('');
-  box([
-    `${c.bold}${c.fg}Multi-Account Farm${c.reset}`,
-    ``,
-    `  generates ${c.cyan}${count}${c.reset} new bonsai account(s) via WorkOS device flow.`,
-    `  each account gets its own API key for pool rotation.`,
-    ``,
-    `  ${c.dim}uses mail.tm for throwaway inboxes (no real email needed).${c.reset}`,
-    `  ${c.dim}each account adds ~20M tokens/day to your pool capacity.${c.reset}`,
-  ], { title: `${S.bolt} FARM`, color: c.gold, width: 60 });
-  log('');
-
-  for (let i = 0; i < count; i++) {
-    log(`\n  ${c.bold}account ${i + 1}/${count}${c.reset}`);
-    let sp = spinner('requesting device code...');
-
-    // 1. get device code
-    let deviceRes;
-    try {
-      deviceRes = await req(`${cfg.workos.apiUrl}/user_management/authorize/device`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: cfg.workos.clientId, scope: 'openid email profile' }),
-        timeout: 10000,
-      });
-    } catch (e) { sp.stop(); fail(`device code request failed: ${e.message}`); continue; }
-    sp.stop();
-
-    let dc = deviceRes.body;
-    if (!dc?.device_code || !dc?.verification_uri_complete) {
-      fail('invalid device code response');
-      if (process.env.DEBUG) console.error(dc);
-      continue;
-    }
-
-    log(`  ${c.dim}code:${c.reset} ${c.bold}${c.yellow}${dc.user_code}${c.reset}`);
-    log(`  ${c.dim}link:${c.reset} ${c.cyan}${c.under}${dc.verification_uri_complete}${c.reset}`);
-    log('');
-
-    if (manual) {
-      info('open the link above in your browser, sign in with any email');
-      info(`(use ${c.cyan}+alias${c.reset} gmail trick: ${c.dim}youremail+${i}@gmail.com${c.reset})`);
-      info('press enter here after you see "device authorized"');
-      await ask(`  ${c.dim}[enter to continue]${c.reset} `);
-    } else {
-      info(`open this in your browser: ${c.cyan}${dc.verification_uri_complete}${c.reset}`);
-      info(`sign in with any email (try ${c.cyan}youremail+farm${i}@gmail.com${c.reset})`);
-      info('waiting for authorization...');
-    }
-
-    // 2. poll for auth
-    let attempts = 0, maxAttempts = 60; // 5 min
-    let authed = null;
-    let sp2 = spinner('polling for authorization...');
-    while (attempts < maxAttempts) {
-      await new Promise(r => setTimeout(r, dc.interval ? dc.interval * 1000 : 5000));
-      attempts++;
-      try {
-        let poll = await req(`${cfg.workos.apiUrl}/user_management/authenticate`, {
-          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: dc.device_code, client_id: cfg.workos.clientId }).toString(),
-          timeout: 10000,
-        });
-        if (poll.body?.access_token) { authed = poll.body; break; }
-        if (poll.body?.error === 'expired_token') { sp2.stop(); fail('device code expired (5 min timeout)'); break; }
-      } catch {}
-    }
-    sp2.stop();
-
-    if (!authed) { fail('authorization timed out'); continue; }
-    authed.saved_at = Date.now();
-
-    // 3. fetch user info + get API key
-    let userEmail = '?';
-    try {
-      let u = (await req(`${cfg.backend}/auth/user`, { headers: { 'Authorization': `Bearer ${authed.access_token}` }, timeout: 8000 })).body;
-      if (u?.email) userEmail = u.email;
-    } catch {}
-
-    let apiKey = null;
-    try {
-      let keys = (await req(`${cfg.backend}/keys/`, { headers: { 'Authorization': `Bearer ${authed.access_token}` }, timeout: 8000 })).body;
-      if (Array.isArray(keys) && keys.length) apiKey = keys[0].key;
-      else {
-        let newKey = (await req(`${cfg.backend}/keys/`, { method: 'POST', headers: { 'Authorization': `Bearer ${authed.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: `farm-${i}` }), timeout: 8000 })).body;
-        apiKey = newKey?.key;
-      }
-    } catch {}
-
-    if (!apiKey) { warn(`got auth for ${userEmail} but no API key — generate one manually via bon keys`); }
-
-    // 4. save as profile
-    let profName = userEmail.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30) || `farm-${i}`;
-    let profDir = path.join(cfg.configDir, 'profiles');
-    try { fs.mkdirSync(profDir, { recursive: true }); } catch {}
-    fs.writeFileSync(path.join(profDir, `${profName}.json`), JSON.stringify({
-      email: userEmail, auth: authed, apiKey,
-    }, null, 2));
-
-    success(`${c.bold}${userEmail}${c.reset} ${c.dim}→${c.reset} profile ${c.cyan}${profName}${c.reset} ${apiKey ? `${c.green}+ key${c.reset}` : c.yellow + 'no key' + c.reset}`);
-  }
-
-  log('');
-  let pool = loadPool();
-  success(`pool now has ${c.bold}${pool.length}${c.reset} keys. ${c.dim}use ${c.cyan}bon pool${c.reset}${c.dim} to check, ${c.cyan}bon proxy --rotate${c.reset}${c.dim} to use.${c.reset}`);
-  log('');
-}
-
 async function cmdApi() {
   let portArg = process.argv.find(a => /^\d{2,5}$/.test(a));
   let port = parseInt(portArg) || 4000;
@@ -2455,6 +2477,154 @@ async function cmdDump() {
   for (let s of sections) { box(s.l, { title: s.t, color: s.c, width: 60 }); log(''); }
 }
 
+
+async function cmdPatch() {
+  banner();
+  // find & patch claude-code bundles: min(2) → min(0) on AskUserQuestion options
+  // this is the exact 1-byte change bonsai makes to their fork
+  let doRevert = process.argv.includes('--revert');
+  let dryRun = process.argv.includes('--dry-run');
+  let verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+
+  let searchFrom = doRevert ? '0)' : '2)';
+  let replaceTo  = doRevert ? '2)' : '0)';
+  let desc = doRevert ? 'reverting' : 'patching';
+
+  // the needle: AskUserQuestion zod schema has `.min(2).max(4)` on the options array
+  // we match the `.min(2).max(4).describe(` pattern to be surgical
+  let needleStr = `.min(${searchFrom[0]}).max(4).describe(`;
+  let replStr   = `.min(${replaceTo[0]}).max(4).describe(`;
+
+  // collect candidate paths
+  let candidates = new Set();
+
+  // 1. npm global
+  let globalNm = path.join(process.env.APPDATA || path.join(os.homedir(), '.npm'), 'npm', 'node_modules');
+  for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+    let f = path.join(globalNm, pkg, 'cli.js');
+    if (fs.existsSync(f)) candidates.add(f);
+  }
+  // roaming npm on windows
+  let roamNm = path.join(process.env.APPDATA || '', 'npm', 'node_modules');
+  for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+    let f = path.join(roamNm, pkg, 'cli.js');
+    if (fs.existsSync(f)) candidates.add(f);
+  }
+
+  // 2. npm cache (_npx dirs)
+  let npxBase = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), '.npm'), 'npm-cache', '_npx');
+  if (fs.existsSync(npxBase)) {
+    try {
+      for (let dir of fs.readdirSync(npxBase)) {
+        for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+          let f = path.join(npxBase, dir, 'node_modules', pkg, 'cli.js');
+          if (fs.existsSync(f)) candidates.add(f);
+        }
+      }
+    } catch {}
+  }
+
+  // 3. local node_modules (cwd + parent)
+  for (let base of [process.cwd(), path.dirname(process.cwd())]) {
+    for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+      let f = path.join(base, 'node_modules', pkg, 'cli.js');
+      if (fs.existsSync(f)) candidates.add(f);
+    }
+  }
+
+  // 4. explicit --file path
+  let fileArg = process.argv.find(a => a.startsWith('--file='));
+  if (fileArg) {
+    let f = fileArg.split('=')[1];
+    if (fs.existsSync(f)) candidates.add(f);
+  }
+
+  if (candidates.size === 0) {
+    fail('no claude-code cli.js bundles found');
+    info(`install one first: ${c.cyan}npx @anthropic-ai/claude-code --version${c.reset}`);
+    info(`or specify path: ${c.cyan}bon patch --file=/path/to/cli.js${c.reset}`);
+    return;
+  }
+
+  log(`  ${c.sub}${desc} AskUserQuestion: .min(${searchFrom[0]}) → .min(${replaceTo[0]})${c.reset}`);
+  log(`  ${c.dim}(bonsai's 1-byte bypass — allows 0 options on confirmation dialogs)${c.reset}`);
+  log('');
+
+  let patched = 0, skipped = 0, failed = 0;
+  for (let fp of candidates) {
+    let rel = fp.replace(/\\/g, '/');
+    // only read a chunk around likely offset to avoid loading 14MB into memory as string
+    let fd, buf, stat;
+    try {
+      stat = fs.statSync(fp);
+      fd = fs.openSync(fp, dryRun ? 'r' : 'r+');
+      buf = Buffer.alloc(stat.size);
+      fs.readSync(fd, buf, 0, stat.size, 0);
+    } catch (e) {
+      fail(`${rel}: ${e.message}`);
+      failed++;
+      if (fd !== undefined) fs.closeSync(fd);
+      continue;
+    }
+
+    let needle = Buffer.from(needleStr, 'utf8');
+    let idx = buf.indexOf(needle);
+    if (idx === -1) {
+      // already patched or different version
+      let altNeedle = Buffer.from(replStr, 'utf8');
+      if (buf.indexOf(altNeedle) !== -1) {
+        log(`  ${c.yellow}${S.skip}${c.reset} ${c.dim}${rel}${c.reset} — already ${doRevert ? 'reverted' : 'patched'}`);
+      } else {
+        log(`  ${c.yellow}${S.skip}${c.reset} ${c.dim}${rel}${c.reset} — pattern not found (native binary?)`);
+      }
+      skipped++;
+      fs.closeSync(fd);
+      continue;
+    }
+
+    // count all occurrences (should be exactly 1)
+    let count = 0, pos = 0;
+    while ((pos = buf.indexOf(needle, pos)) !== -1) { count++; pos += needle.length; }
+
+    if (verbose) {
+      log(`  ${c.dim}found ${count} match(es) at offset ${idx} in ${(stat.size/1e6).toFixed(1)}MB bundle${c.reset}`);
+    }
+
+    if (dryRun) {
+      log(`  ${c.blue}${S.tri}${c.reset} ${rel} — would patch ${count} occurrence(s)`);
+      skipped++;
+      fs.closeSync(fd);
+      continue;
+    }
+
+    // apply patch
+    let repl = Buffer.from(replStr, 'utf8');
+    pos = 0;
+    while ((pos = buf.indexOf(needle, pos)) !== -1) {
+      repl.copy(buf, pos);
+      pos += repl.length;
+    }
+    fs.writeSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+
+    log(`  ${c.green}${S.chk}${c.reset} ${rel}`);
+    log(`    ${c.dim}${count} occurrence(s) patched at offset ${idx}${c.reset}`);
+    patched++;
+  }
+
+  log('');
+  if (patched > 0) success(`${desc} complete: ${patched} file(s) modified`);
+  else if (skipped > 0 && failed === 0) info(`nothing to ${doRevert ? 'revert' : 'patch'} — all files already done or incompatible`);
+  if (failed > 0) warn(`${failed} file(s) failed (check permissions)`);
+
+  if (!doRevert && patched > 0) {
+    log('');
+    log(`  ${c.sub}what changed:${c.reset}`);
+    log(`  ${c.dim}AskUserQuestion can now present 0 options instead of min 2.${c.reset}`);
+    log(`  ${c.dim}Bonsai's "please choose Confirm" gate becomes auto-resolvable.${c.reset}`);
+    log(`  ${c.dim}revert anytime: ${c.cyan}bon patch --revert${c.reset}`);
+  }
+}
 
 async function cmdCc() {
   // direct claude-code launch, skip the picker. fast path.
@@ -2912,6 +3082,8 @@ const TYPOS = {
   'lmits':'limits', 'limts':'limits', 'limis':'limits',
   'snopp':'snoop', 'snoo':'snoop', 'snopo':'snoop',
   'cofnig':'config', 'confg':'config', 'cofig':'config',
+  'ptach':'patch', 'pahch':'patch', 'ptch':'patch', 'pacth':'patch',
+  'bypas':'bypass', 'byapss':'bypass', 'bypss':'bypass', 'byass':'bypass',
 };
 
 // -- main --
@@ -2975,7 +3147,7 @@ async function main() {
       ['rotate', 'Launch with auto key rotation'],
       ['multi', 'Multi-account profiles'],
       ['steal', 'Import from official CLI + Cursor/Cline/VSCode'],
-      ['farm', 'Auto-provision new accounts (WorkOS device flow)'],
+      ['patch', 'Apply AskUserQuestion bypass (1-byte, --revert)'],
       ['snoop', 'Data collection info'],
       ['config', 'View / edit settings'],
       ['troubleshoot', 'Fix common errors'],
@@ -3165,7 +3337,7 @@ async function main() {
       case 'rotate': await cmdRotate(); break;
       case 'multi': await cmdMulti(); break;
       case 'steal': await cmdSteal(); break;
-      case 'farm': await cmdFarm(); break;
+      case 'patch': case 'bypass': await cmdPatch(); break;
       case 'snoop': await cmdSnoop(); break;
       case 'troubleshoot': case 'fix': await cmdTroubleshoot(); break;
       case 'update': await cmdUpdate(); break;
@@ -3174,7 +3346,7 @@ async function main() {
       case 'dump': await cmdDump(); break;
       default: {
         // suggest the closest known command instead of just failing
-        let known = ['login','logout','start','cc','codex','agents','dash','count','ui','keys','test','info','whoami','config','activity','limits','stats','health','proxy','models','bench','fingerprint','api','pool','rotate','multi','steal','farm','snoop','troubleshoot','update','version','statsig','dump','help'];
+        let known = ['login','logout','start','cc','codex','agents','dash','count','ui','keys','test','info','whoami','config','activity','limits','stats','health','proxy','models','bench','fingerprint','api','pool','rotate','multi','steal','patch','bypass','snoop','troubleshoot','update','version','statsig','dump','help'];
         let lev = (a, b) => {
           let m = Array.from({length: a.length+1}, () => Array(b.length+1).fill(0));
           for (let i = 0; i <= a.length; i++) m[i][0] = i;
