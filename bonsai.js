@@ -2495,30 +2495,48 @@ async function cmdPatch() {
   let needleStr = `.min(${searchFrom[0]}).max(4).describe(`;
   let replStr   = `.min(${replaceTo[0]}).max(4).describe(`;
 
-  // collect candidate paths
+  // collect candidate paths — cross-platform
   let candidates = new Set();
+  let pkgs = ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code'];
+  let home = os.homedir();
 
-  // 1. npm global
-  let globalNm = path.join(process.env.APPDATA || path.join(os.homedir(), '.npm'), 'npm', 'node_modules');
-  for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
-    let f = path.join(globalNm, pkg, 'cli.js');
-    if (fs.existsSync(f)) candidates.add(f);
-  }
-  // roaming npm on windows
-  let roamNm = path.join(process.env.APPDATA || '', 'npm', 'node_modules');
-  for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
-    let f = path.join(roamNm, pkg, 'cli.js');
-    if (fs.existsSync(f)) candidates.add(f);
+  // 1. ask npm where global prefix is (works on all OS)
+  let npmPrefix = '';
+  try { npmPrefix = execSync('npm prefix -g', { encoding: 'utf8', timeout: 5000, stdio: ['ignore','pipe','ignore'] }).trim(); } catch {}
+
+  // global node_modules dirs to check
+  let globalDirs = new Set();
+  if (npmPrefix) globalDirs.add(path.join(npmPrefix, 'lib', 'node_modules')); // linux/mac
+  if (npmPrefix) globalDirs.add(path.join(npmPrefix, 'node_modules')); // windows
+  if (process.env.APPDATA) globalDirs.add(path.join(process.env.APPDATA, 'npm', 'node_modules'));
+  globalDirs.add(path.join(home, '.npm-global', 'lib', 'node_modules')); // common linux custom
+  globalDirs.add(path.join(home, 'node_modules')); // nvm style
+  globalDirs.add('/usr/local/lib/node_modules');
+  globalDirs.add('/usr/lib/node_modules');
+  // termux + nvm
+  globalDirs.add('/data/data/com.termux/files/usr/lib/node_modules');
+  if (process.env.PREFIX) globalDirs.add(path.join(process.env.PREFIX, 'lib', 'node_modules'));
+  if (process.env.NVM_DIR) globalDirs.add(path.join(process.env.NVM_DIR, 'versions', 'node', process.version, 'lib', 'node_modules'));
+
+  for (let dir of globalDirs) {
+    for (let pkg of pkgs) {
+      let f = path.join(dir, pkg, 'cli.js');
+      try { if (fs.existsSync(f)) candidates.add(f); } catch {}
+    }
   }
 
-  // 2. npm cache (_npx dirs)
-  let npxBase = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), '.npm'), 'npm-cache', '_npx');
-  if (fs.existsSync(npxBase)) {
+  // 2. npm cache / _npx dirs (cross-platform)
+  let npxDirs = new Set();
+  if (process.env.LOCALAPPDATA) npxDirs.add(path.join(process.env.LOCALAPPDATA, 'npm-cache', '_npx'));
+  npxDirs.add(path.join(home, '.npm', '_npx')); // linux/mac
+  npxDirs.add(path.join(home, '.cache', 'npm', '_npx')); // some linux
+  for (let npxBase of npxDirs) {
+    if (!fs.existsSync(npxBase)) continue;
     try {
       for (let dir of fs.readdirSync(npxBase)) {
-        for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+        for (let pkg of pkgs) {
           let f = path.join(npxBase, dir, 'node_modules', pkg, 'cli.js');
-          if (fs.existsSync(f)) candidates.add(f);
+          try { if (fs.existsSync(f)) candidates.add(f); } catch {}
         }
       }
     } catch {}
@@ -2526,9 +2544,9 @@ async function cmdPatch() {
 
   // 3. local node_modules (cwd + parent)
   for (let base of [process.cwd(), path.dirname(process.cwd())]) {
-    for (let pkg of ['@anthropic-ai/claude-code', '@bonsai-ai/claude-code']) {
+    for (let pkg of pkgs) {
       let f = path.join(base, 'node_modules', pkg, 'cli.js');
-      if (fs.existsSync(f)) candidates.add(f);
+      try { if (fs.existsSync(f)) candidates.add(f); } catch {}
     }
   }
 
